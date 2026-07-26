@@ -1,0 +1,10 @@
+{
+  "name": "Çağdaş PetShop",
+  "description": "Pet shop management application with inventory, camera barcode scanner, sales tracking, customer management, and financial reporting.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
