@@ -527,6 +527,187 @@
             ];
         }
 
+        // Aynı Alış ve Satış Fiyatına Sahip Stok Partilerini Birleştirme Helper'ı
+        function mergeIdenticalStockLots(product) {
+            if (!product || !Array.isArray(product.stockLots) || product.stockLots.length <= 1) return;
+
+            const merged = [];
+            product.stockLots.forEach(lot => {
+                const bp = parseFloat(lot.buyPrice) || 0;
+                const sp = parseFloat(lot.sellPrice) || (parseFloat(product.sellPrice) || 0);
+                const qty = parseFloat(lot.quantity) || 0;
+                const initQty = parseFloat(lot.initialQuantity) || qty;
+
+                if (qty <= 0) return;
+
+                const existing = merged.find(m => Math.abs((parseFloat(m.buyPrice) || 0) - bp) < 0.01 && Math.abs((parseFloat(m.sellPrice) || 0) - sp) < 0.01);
+                if (existing) {
+                    existing.quantity = (parseFloat(existing.quantity) || 0) + qty;
+                    existing.initialQuantity = (parseFloat(existing.initialQuantity) || 0) + initQty;
+                } else {
+                    merged.push({
+                        id: lot.id || ('lot-' + Date.now() + '-' + Math.floor(Math.random() * 1000)),
+                        buyPrice: bp,
+                        sellPrice: sp,
+                        quantity: qty,
+                        initialQuantity: initQty,
+                        date: lot.date || 'İlk Stok'
+                    });
+                }
+            });
+            product.stockLots = merged;
+        }
+
+        // Aynı Alış ve Satış Fiyatına Sahip Ürün ve Partileri Birleştirme
+        function mergeIdenticalProducts() {
+            let mergedProductsCount = 0;
+            let mergedLotsCount = 0;
+
+            // 1. Her ürünün parti stoklarındaki aynı fiyatlı partileri birleştir
+            state.products.forEach(p => {
+                if (!Array.isArray(p.stockLots)) p.stockLots = [];
+                const prevCount = p.stockLots.length;
+                mergeIdenticalStockLots(p);
+                const newCount = p.stockLots.length;
+                if (prevCount > newCount) {
+                    mergedLotsCount += (prevCount - newCount);
+                }
+            });
+
+            // 2. Aynı ad/barkod ve aynı alış/satış fiyatına sahip mükerrer ürün kartlarını birleştir
+            const uniqueProductsMap = [];
+
+            for (let i = 0; i < state.products.length; i++) {
+                const p = state.products[i];
+                ensureStockLots(p);
+
+                const pName = (p.name || '').trim().toLowerCase();
+                const pBarcode = (p.barcode || '').trim();
+                const pBuy = parseFloat(p.buyPrice) || 0;
+                const pSell = parseFloat(p.sellPrice) || 0;
+
+                const match = uniqueProductsMap.find(u => {
+                    const samePrices = Math.abs((parseFloat(u.buyPrice) || 0) - pBuy) < 0.01 && Math.abs((parseFloat(u.sellPrice) || 0) - pSell) < 0.01;
+                    const sameName = pName && (u.name || '').trim().toLowerCase() === pName;
+                    const sameBarcode = pBarcode && (u.barcode || '').trim() === pBarcode;
+                    return samePrices && (sameName || sameBarcode);
+                });
+
+                if (match) {
+                    match.shop = (parseFloat(match.shop) || 0) + (parseFloat(p.shop) || 0);
+                    match.warehouse = (parseFloat(match.warehouse) || 0) + (parseFloat(p.warehouse) || 0);
+
+                    if (Array.isArray(p.stockLots)) {
+                        match.stockLots = (match.stockLots || []).concat(p.stockLots);
+                        mergeIdenticalStockLots(match);
+                    }
+
+                    mergedProductsCount++;
+                } else {
+                    uniqueProductsMap.push(p);
+                }
+            }
+
+            state.products = uniqueProductsMap;
+            saveData();
+
+            return { mergedProductsCount, mergedLotsCount };
+        }
+
+        // FIFO Stok Partisi Garanti Helper'ı
+        function ensureStockLots(product) {
+            if (!product) return;
+            if (!Array.isArray(product.stockLots)) product.stockLots = [];
+
+            const totalStock = (parseFloat(product.shop) || 0) + (parseFloat(product.warehouse) || 0);
+
+            // Eğer parti listesi boş ama fiziki stok varsa, ilk parti olarak ekle
+            if (product.stockLots.length === 0 && totalStock > 0) {
+                product.stockLots.push({
+                    id: 'lot-init-' + product.id,
+                    buyPrice: parseFloat(product.buyPrice) || 0,
+                    sellPrice: parseFloat(product.sellPrice) || 0,
+                    quantity: totalStock,
+                    initialQuantity: totalStock,
+                    date: 'İlk Stok'
+                });
+            } else if (product.stockLots.length > 0) {
+                // Parti stokları toplamını kontrol et
+                const sumLots = product.stockLots.reduce((s, lot) => s + (parseFloat(lot.quantity) || 0), 0);
+                if (totalStock > sumLots) {
+                    // Elle stok artışı olmuşsa aradaki fark kadar yeni parti oluştur
+                    const diff = totalStock - sumLots;
+                    product.stockLots.push({
+                        id: 'lot-adj-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+                        buyPrice: parseFloat(product.buyPrice) || 0,
+                        sellPrice: parseFloat(product.sellPrice) || 0,
+                        quantity: diff,
+                        initialQuantity: diff,
+                        date: new Date().toLocaleString('tr-TR')
+                    });
+                }
+            }
+            mergeIdenticalStockLots(product);
+        }
+
+        // Yüklenen ürünlerde FIFO stok partilerini garantiye al ve birleştir
+        state.products.forEach(p => ensureStockLots(p));
+        mergeIdenticalProducts();
+
+        window.quickStockTransferModal = function(id) {
+            const p = state.products.find(x => x.id === id);
+            if (!p) {
+                alert("⚠️ Ürün bulunamadı!");
+                return;
+            }
+            const currentShop = parseFloat(p.shop) || 0;
+            const currentWarehouse = parseFloat(p.warehouse) || 0;
+
+            const amountStr = prompt(
+                `⚡ HIZLI STOK TRANSFERİ (Depo ➡️ Dükkan)\n\nÜrün: "${p.name}"\nMevcut Dükkan Stoğu: ${currentShop} Adet\nMevcut Depo Stoğu: ${currentWarehouse} Adet\n\nDepo'dan Dükkan'a kaç adet transfer edilsin?`,
+                "5"
+            );
+
+            if (amountStr === null) return;
+            const amount = parseFloat(amountStr);
+
+            if (isNaN(amount) || amount <= 0) {
+                alert("⚠️ Geçersiz miktar girdiniz!");
+                return;
+            }
+
+            if (currentWarehouse < amount) {
+                const confirmOver = confirm(
+                    `⚠️ Depodaki miktar (${currentWarehouse} Adet) transfer edilmek istenen miktardan (${amount} Adet) az.\n\nYine de dükkan stoğuna ${amount} adet eklensin mi?`
+                );
+                if (!confirmOver) return;
+            }
+
+            p.shop = currentShop + amount;
+            if (currentWarehouse >= amount) {
+                p.warehouse = currentWarehouse - amount;
+            } else {
+                p.warehouse = 0;
+            }
+
+            if (!Array.isArray(state.stockLog)) state.stockLog = [];
+            state.stockLog.push({
+                id: Date.now(),
+                productName: p.name,
+                quantity: amount,
+                type: 'in',
+                date: new Date().toLocaleString('tr-TR'),
+                user: (state.user && state.user.name) ? state.user.name : 'Sistem',
+                note: `⚡ Hızlı Transfer (Depo ➡️ Dükkan)`
+            });
+
+            saveData();
+            if (typeof renderScreen === 'function') {
+                renderScreen();
+            }
+            alert(`✅ "${p.name}" dükkan stoğu ${p.shop} adete yükseltildi!`);
+        };
+
         function saveData() {
             try { localStorage.setItem('cagdas', JSON.stringify(state)); } catch(e) {}
         }
@@ -808,6 +989,38 @@
             }
         }
 
+        window.quickStockTransferModal = function(id) {
+            const p = state.products.find(x => x.id === id);
+            if (!p) return;
+            const amountStr = prompt(`"${p.name}" için Depo'dan Dükkan'a kaç adet transfer edilsin?\n\nMevcut Dükkan: ${p.shop || 0} | Depo: ${p.warehouse || 0}`, "5");
+            if (amountStr === null) return;
+            const amount = parseFloat(amountStr);
+            if (isNaN(amount) || amount <= 0) {
+                alert("⚠️ Geçersiz miktar!");
+                return;
+            }
+            if ((p.warehouse || 0) < amount) {
+                const confirmOver = confirm(`⚠️ Depodaki miktar (${p.warehouse || 0}) girilen miktardan (${amount}) az.\nYine de dükkan stoğunu arttırmak ister misiniz?`);
+                if (!confirmOver) return;
+            }
+            p.shop = (p.shop || 0) + amount;
+            if ((p.warehouse || 0) >= amount) {
+                p.warehouse = (p.warehouse || 0) - amount;
+            }
+            state.stockLog.push({
+                id: Date.now(),
+                productName: p.name,
+                quantity: amount,
+                type: 'in',
+                date: new Date().toLocaleString('tr-TR'),
+                user: (state.user && state.user.name) ? state.user.name : 'Sistem',
+                note: `Hızlı Dükkan Transferi (Depo ➡️ Dükkan)`
+            });
+            saveData();
+            renderScreen();
+            alert(`✅ "${p.name}" dükkan stoğu ${p.shop} adete yükseltildi!`);
+        };
+
         // ========== DASHBOARD ==========
         function renderDashboard(screen) {
             const totalSales = state.sales.reduce((s, a) => s + (a.total || 0), 0);
@@ -927,38 +1140,6 @@
                     </div>
                 </div>
             `;
-
-            window.quickStockTransferModal = function(id) {
-                const p = state.products.find(x => x.id === id);
-                if (!p) return;
-                const amountStr = prompt(`"${p.name}" için Depo'dan Dükkan'a kaç adet transfer edilsin?\n\nMevcut Dükkan: ${p.shop} | Depo: ${p.warehouse}`, "5");
-                if (amountStr === null) return;
-                const amount = parseFloat(amountStr);
-                if (isNaN(amount) || amount <= 0) {
-                    alert("⚠️ Geçersiz miktar!");
-                    return;
-                }
-                if (p.warehouse < amount) {
-                    const confirmOver = confirm(`⚠️ Depodaki miktar (${p.warehouse}) girilen miktardan (${amount}) az.\nYine de dükkan stoğunu arttırmak ister misiniz?`);
-                    if (!confirmOver) return;
-                }
-                p.shop += amount;
-                if (p.warehouse >= amount) {
-                    p.warehouse -= amount;
-                }
-                state.stockLog.push({
-                    id: Date.now(),
-                    productName: p.name,
-                    quantity: amount,
-                    type: 'in',
-                    date: new Date().toLocaleString('tr-TR'),
-                    user: state.user.name,
-                    note: `Hızlı Dükkan Transferi (Kritik Stok Müdahalesi)`
-                });
-                saveData();
-                renderDashboard(screen);
-                alert(`✅ ${p.name} dükkan stoğu ${p.shop} adete yükseltildi!`);
-            };
         }
 
         // ========== POS (KASA) ==========
@@ -982,20 +1163,30 @@
                     </div>
                 </div>
 
-                <div class="grid-3" style="margin-bottom: 12px; gap: 6px;">
-                    <div>
-                        <label style="font-size: 10px; font-weight: bold;">Ürün Arama</label>
-                        <input id="search" placeholder="Ara..." style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px;" />
-                    </div>
-                    <div>
-                        <label style="font-size: 10px; font-weight: bold;">Barkod</label>
-                        <input id="barcode-input" placeholder="Barkod..." style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px;" onkeypress="handleBarcodeSearch(event)" oninput="filterByBarcodeInput()" />
-                    </div>
-                    <div>
-                        <button onclick="togglePosCameraMode('qr')" style="width: 100%; padding: 6px; background: ${theme.info}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px; margin-top: 22px;">🔳 QR Oku</button>
-                    </div>
-                    <div>
-                        <button onclick="togglePosCameraMode('barcode')" style="width: 100%; padding: 6px; background: ${theme.warning}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px; margin-top: 22px;">📦 Barkod Oku</button>
+                <div style="background: ${theme.card}; padding: 10px; border-radius: 8px; margin-bottom: 12px; border: 1px solid ${theme.primary}30;">
+                    <div style="display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap;">
+                        <div style="min-width: 100px; flex: 0 0 auto;">
+                            <label style="font-size: 10px; font-weight: bold; color: ${theme.primary}; display: block; margin-bottom: 3px;">⚡ Hızlı Miktar</label>
+                            <input id="pos-quick-qty" type="number" min="1" value="1" style="width: 100%; padding: 6px; border-radius: 4px; border: 2px solid ${theme.primary}; font-size: 14px; font-weight: bold; text-align: center; background: ${theme.background}; color: ${theme.text};" onfocus="this.select()" onkeydown="if(event.key === 'Enter'){ event.preventDefault(); this.blur(); }" title="Eklemek istediğiniz miktarı yazın (Örn: 10, 50)" />
+                        </div>
+                        <div style="display: flex; gap: 3px; align-items: center; margin-bottom: 2px;">
+                            <button onclick="setQuickQty(1)" style="padding: 6px 8px; background: ${theme.background}; color: ${theme.primary}; border: 1px solid ${theme.primary}; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold;">1</button>
+                            <button onclick="setQuickQty(5)" style="padding: 6px 8px; background: ${theme.background}; color: ${theme.primary}; border: 1px solid ${theme.primary}; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold;">5</button>
+                            <button onclick="setQuickQty(10)" style="padding: 6px 8px; background: ${theme.background}; color: ${theme.primary}; border: 1px solid ${theme.primary}; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold;">10</button>
+                            <button onclick="setQuickQty(20)" style="padding: 6px 8px; background: ${theme.background}; color: ${theme.primary}; border: 1px solid ${theme.primary}; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold;">20</button>
+                        </div>
+                        <div style="flex: 1; min-width: 130px;">
+                            <label style="font-size: 10px; font-weight: bold; display: block; margin-bottom: 3px;">🔍 Ürün Ara</label>
+                            <input id="search" placeholder="İsim, SKU..." style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px;" />
+                        </div>
+                        <div style="flex: 1; min-width: 130px;">
+                            <label style="font-size: 10px; font-weight: bold; display: block; margin-bottom: 3px;">📦 Barkod</label>
+                            <input id="barcode-input" placeholder="Barkod yaz ve Enter..." style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px;" onkeypress="handleBarcodeSearch(event)" oninput="filterByBarcodeInput()" />
+                        </div>
+                        <div style="display: flex; gap: 4px;">
+                            <button onclick="togglePosCameraMode('qr')" style="padding: 6px 10px; background: ${theme.info}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px;">🔳 QR</button>
+                            <button onclick="togglePosCameraMode('barcode')" style="padding: 6px 10px; background: ${theme.warning}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px;">📦 Barkod</button>
+                        </div>
                     </div>
                 </div>
 
@@ -1096,15 +1287,46 @@
                         <div style="color: ${theme.success}; font-weight: bold;">${(c.sellPrice * c.qty).toFixed(0)}₺</div>
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center; gap: 4px;">
-                        <div style="display: flex; gap: 2px; align-items: center;">
-                            <button onclick="decreaseQty(${index})" style="padding: 2px 6px; background: ${theme.warning}; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 9px; font-weight: bold;">−</button>
-                            <div style="min-width: 30px; text-align: center; font-weight: bold;">${c.qty}</div>
-                            <button onclick="increaseQty(${index})" style="padding: 2px 6px; background: ${theme.success}; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 9px; font-weight: bold;">+</button>
+                        <div style="display: flex; gap: 3px; align-items: center;">
+                            <button onclick="decreaseQty(${index})" style="padding: 3px 8px; background: ${theme.warning}; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 10px; font-weight: bold;" title="Miktarı 1 Azalt">−</button>
+                            <input type="number" min="1" value="${c.qty}" onchange="updateCartQty(${index}, this.value)" onfocus="this.select()" style="width: 55px; text-align: center; font-weight: bold; padding: 3px 4px; border: 1px solid ${theme.primary}; border-radius: 4px; font-size: 11px; background: ${theme.background}; color: ${theme.text};" title="Miktarı buraya yazarak hızlıca değiştirebilirsiniz" />
+                            <button onclick="increaseQty(${index})" style="padding: 3px 8px; background: ${theme.success}; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 10px; font-weight: bold;" title="Miktarı 1 Arttır">+</button>
                         </div>
-                        <button onclick="removeFromCart(${c.id})" style="padding: 2px 6px; background: ${theme.error}; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 9px;">🗑️ Sil</button>
+                        <button onclick="removeFromCart(${c.id})" style="padding: 3px 8px; background: ${theme.error}; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 9px;">🗑️ Sil</button>
                     </div>
                 </div>
             `).join('');
+
+            window.setQuickQty = function(val) {
+                const qElem = document.getElementById('pos-quick-qty');
+                if (qElem) {
+                    qElem.value = val;
+                }
+            };
+
+            window.updateCartQty = function(index, newQtyVal) {
+                const newQty = parseInt(newQtyVal, 10);
+                if (isNaN(newQty) || newQty < 1) {
+                    alert('⚠️ Geçersiz miktar!');
+                    renderPOS(screen);
+                    return;
+                }
+                if (index >= 0 && index < state.cart.length) {
+                    const cartItem = state.cart[index];
+                    const product = state.products.find(p => p.id === cartItem.id);
+                    if (product) {
+                        const totalStock = (parseFloat(product.shop) || 0) + (parseFloat(product.warehouse) || 0);
+                        if (newQty > totalStock) {
+                            alert(`⚠️ Stok limitine ulaştınız!\n"${product.name}" için mevcut toplam stok: ${totalStock} adet.`);
+                            renderPOS(screen);
+                            return;
+                        }
+                        cartItem.qty = newQty;
+                        saveData();
+                        renderPOS(screen);
+                    }
+                }
+            };
 
             window.increaseQty = function(index) {
                 if (index >= 0 && index < state.cart.length) {
@@ -1112,13 +1334,8 @@
                     const product = state.products.find(p => p.id === cartItem.id);
                     
                     if (product) {
-                        const totalStock = product.shop + product.warehouse;
-                        // Sepetteki toplam miktarı kontrol et
-                        const totalInCart = state.cart.reduce((sum, item) => {
-                            return sum + (item.id === cartItem.id ? item.qty : 0);
-                        }, 0);
-                        
-                        if (totalInCart < totalStock) {
+                        const totalStock = (parseFloat(product.shop) || 0) + (parseFloat(product.warehouse) || 0);
+                        if (cartItem.qty < totalStock) {
                             cartItem.qty++;
                             saveData();
                             renderPOS(screen);
@@ -1148,14 +1365,22 @@
                     p.barcode.includes(query) ||
                     (p.sku || '').toLowerCase().includes(query)
                 );
-                list.innerHTML = filtered.map(p => `
+                list.innerHTML = filtered.map(p => {
+                    let imageHtml;
+                    if (p.image64 && p.image64.startsWith('data:image')) {
+                        imageHtml = `<img src="${p.image64}" style="width: 40px; height: 40px; border-radius: 4px; object-fit: cover; display: inline-block;" />`;
+                    } else {
+                        imageHtml = `<div style="font-size: 20px;">${p.emoji || '📌'}</div>`;
+                    }
+                    return `
                     <div style="background: ${theme.card}; padding: 8px; border-radius: 6px; cursor: pointer; text-align: center;" onclick="addToCart(${p.id})">
-                        <div style="font-size: 20px;">${p.emoji}</div>
+                        <div style="margin-bottom: 4px; display: flex; justify-content: center; align-items: center; height: 40px;">${imageHtml}</div>
                         <div style="font-size: 10px; font-weight: bold; color: ${theme.primary};">${p.name}</div>
                         <div style="font-size: 11px; color: ${theme.success}; font-weight: bold;">${p.sellPrice}₺</div>
                         <div style="font-size: 9px; color: ${theme.textLight};">D: ${p.shop} | Depo: ${p.warehouse}</div>
                     </div>
-                `).join('');
+                `;
+                }).join('');
             };
 
             document.getElementById('barcode-input').onkeypress = (e) => {
@@ -1166,25 +1391,40 @@
                 }
             };
 
-            window.addToCart = function(id) {
+            window.addToCart = function(id, customQty = null) {
                 const p = state.products.find(x => x.id === id);
                 if (!p) return;
                 
+                let qtyToAdd = customQty;
+                if (qtyToAdd === null) {
+                    const quickInput = document.getElementById('pos-quick-qty');
+                    if (quickInput && quickInput.value) {
+                        qtyToAdd = parseInt(quickInput.value, 10);
+                    }
+                }
+                if (isNaN(qtyToAdd) || qtyToAdd < 1) qtyToAdd = 1;
+
                 const existing = state.cart.find(x => x.id === id);
                 const currentQty = existing ? existing.qty : 0;
-                const totalAvailable = p.shop + p.warehouse;
+                const totalAvailable = (parseFloat(p.shop) || 0) + (parseFloat(p.warehouse) || 0);
                 
                 // Stok kontrolü
-                if (currentQty + 1 > totalAvailable) {
-                    alert(`⚠️ Stok yetersiz!\n"${p.name}"\nMevcut: ${totalAvailable} adet\nBu kadar istiyorsunuz: ${currentQty + 1} adet`);
+                if (currentQty + qtyToAdd > totalAvailable) {
+                    alert(`⚠️ Stok yetersiz!\n"${p.name}"\nMevcut Toplam Stok: ${totalAvailable} adet\nEklenmek İstenen Toplam: ${currentQty + qtyToAdd} adet`);
                     return;
                 }
                 
                 if (existing) {
-                    existing.qty++;
+                    existing.qty += qtyToAdd;
                 } else {
-                    state.cart.push({...p, qty: 1});
+                    state.cart.push({...p, qty: qtyToAdd});
                 }
+
+                // Hızlı miktar kutusunu bir sonraki işlem için 1'e sıfırla
+                const quickInput = document.getElementById('pos-quick-qty');
+                if (quickInput) quickInput.value = '1';
+
+                saveData();
                 renderPOS(screen);
             };
 
@@ -1205,45 +1445,55 @@
                 const customer = state.customers.find(c => c.id === customerId);
                 const paymentType = document.getElementById('pos-payment').value;
                 
-                // Satış öğelerini FIFO ile hazırla (eski stok ÖNCE, yeni stok SONRA)
+                // Satış öğelerini FIFO ile hazırla (ilk giren eski stok ÖNCE, yeni stok SONRA)
                 const saleItems = [];
                 let depoProblem = [];
                 
-                // AŞAMA 1: ESKİ STOK (stockLots boş olanlar) ÖNCE satılsın
                 state.cart.forEach(c => {
                     const p = state.products.find(x => x.id === c.id);
-                    if (p && (!p.stockLots || p.stockLots.length === 0)) {
-                        // Eski stok
-                        saleItems.push({...c, buyPrice: p.buyPrice, sellPrice: p.sellPrice, isOld: true});
-                    }
-                });
-                
-                // AŞAMA 2: YENİ STOK (stockLots dolular) SONRA satılsın
-                state.cart.forEach(c => {
-                    const p = state.products.find(x => x.id === c.id);
-                    if (p && p.stockLots && p.stockLots.length > 0) {
+                    if (p) {
+                        ensureStockLots(p);
+
                         let remaining = c.qty;
-                        
-                        // stockLots'tan FIFO ile azalt
-                        for (let i = 0; i < p.stockLots.length && remaining > 0; i++) {
-                            const lot = p.stockLots[i];
-                            const take = Math.min(remaining, lot.quantity);
-                            
+                        const currentSellPrice = c.sellPrice || p.sellPrice;
+
+                        if (p.stockLots && p.stockLots.length > 0) {
+                            // FIFO: Lot 0 (en eski parti) önce tüketilsin
+                            while (remaining > 0 && p.stockLots.length > 0) {
+                                let lot = p.stockLots[0];
+                                let take = Math.min(remaining, lot.quantity);
+
+                                saleItems.push({
+                                    ...c,
+                                    id: c.id,
+                                    name: p.name,
+                                    qty: take,
+                                    buyPrice: lot.buyPrice, // Alış fiyatı ilgili eski/yeni partiden
+                                    sellPrice: currentSellPrice, // Satış fiyatı güncel satış fiyatından
+                                    lotId: lot.id,
+                                    lotDate: lot.date
+                                });
+
+                                lot.quantity -= take;
+                                remaining -= take;
+
+                                if (lot.quantity <= 0) {
+                                    p.stockLots.shift(); // Bu parti sıfırlandı, listeden çıkar
+                                }
+                            }
+                        }
+
+                        // Eğer stok partileri yetersiz kaldıysa kalan miktar için varsayılan fiyatla ekle
+                        if (remaining > 0) {
                             saleItems.push({
                                 ...c,
-                                qty: take,
-                                buyPrice: lot.buyPrice,
-                                sellPrice: lot.sellPrice || p.sellPrice,
-                                lotIndex: i,
-                                isNew: true
+                                id: c.id,
+                                name: p.name,
+                                qty: remaining,
+                                buyPrice: p.buyPrice || 0,
+                                sellPrice: currentSellPrice
                             });
-                            
-                            lot.quantity -= take;
-                            remaining -= take;
                         }
-                        
-                        // Boş partileri kaldır
-                        p.stockLots = p.stockLots.filter(lot => lot.quantity > 0);
                     }
                 });
                 
@@ -1490,7 +1740,8 @@
                 <div class="grid-2" style="margin-bottom: 12px; gap: 6px;">
                     <button onclick="toggleInventoryForm()" style="width: 100%; padding: 10px; background: ${theme.primary}; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px;">➕ Ürün Ekle</button>
                     <button onclick="toggleInventoryCameraMode('qr')" style="width: 100%; padding: 10px; background: ${theme.info}; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px;">🔳 QR Oku</button>
-                    <button onclick="toggleInventoryCameraMode('barcode')" style="width: 100%; padding: 10px; background: ${theme.warning}; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; grid-column: 1/-1;">📦 Barkod Oku</button>
+                    <button onclick="toggleInventoryCameraMode('barcode')" style="width: 100%; padding: 10px; background: ${theme.warning}; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px;">📦 Barkod Oku</button>
+                    <button onclick="handleMergeIdenticalProductsClick()" style="width: 100%; padding: 10px; background: ${theme.success}; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px;">🔄 Aynı Fiyatlıları Birleştir</button>
                 </div>
 
                 <div id="inventory-camera-container" class="hidden camera-container" style="border-color: ${theme.info}; background: ${theme.card};">
@@ -1702,6 +1953,20 @@
                 alert('✅ Ürün eklendi!');
             };
 
+            window.handleMergeIdenticalProductsClick = function() {
+                const res = mergeIdenticalProducts();
+                saveData();
+                renderInventory(screen);
+                let msg = "✅ Birleştirme İşlemi Tamamlandı!\n\n";
+                if (res.mergedProductsCount > 0 || res.mergedLotsCount > 0) {
+                    if (res.mergedProductsCount > 0) msg += `• ${res.mergedProductsCount} adet aynı fiyatlı mükerrer ürün kartı birleştirildi.\n`;
+                    if (res.mergedLotsCount > 0) msg += `• ${res.mergedLotsCount} adet aynı fiyatlı stok partisi birleştirildi.\n`;
+                } else {
+                    msg += "Aynı alış ve satış fiyatına sahip birleştirilecek mükerrer ürün veya stok partisi bulunamadı.";
+                }
+                alert(msg);
+            };
+
             // Filtre ve liste render
             const filterBar = document.createElement('div');
             filterBar.innerHTML = `
@@ -1755,9 +2020,21 @@
                         </div>
                         <div style="font-size: 9px; color: ${theme.textLight};">📂 ${p.category}</div>
                         <div style="font-size: 9px; color: ${theme.textLight};">SKU: ${p.sku} | Barkod: ${p.barcode}</div>
-                        <div style="font-size: 9px; color: ${theme.success}; font-weight: bold;">💰 Alış: ${displayBuyPrice}₺ | Satış: ${displaySellPrice}₺</div>
+                        <div style="font-size: 9px; color: ${theme.success}; font-weight: bold;">💰 Güncel Alış: ${displayBuyPrice}₺ | Satış: ${displaySellPrice}₺</div>
                         <div style="font-size: 9px; color: ${theme.textLight};">Dükkan: <strong style="color: ${isCritical ? theme.error : theme.text};">${p.shop}</strong> | Depo: ${p.warehouse} | Eşik: <strong>${limit}</strong></div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 6px;">
+                        ${(p.stockLots && p.stockLots.length > 0) ? `
+                            <div style="margin-top: 6px; padding: 6px; background: ${theme.background}; border-radius: 4px; border: 1px dashed ${theme.primary}; font-size: 9px;">
+                                <div style="font-weight: bold; color: ${theme.primary}; margin-bottom: 4px;">🏷️ FIFO Stok Partileri (Önce Satılacaklar):</div>
+                                ${p.stockLots.map((lot, lIdx) => `
+                                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 2px 0; border-bottom: ${lIdx < p.stockLots.length - 1 ? '1px solid ' + theme.primary + '20' : 'none'};">
+                                        <span>Parti #${lIdx + 1}: <strong style="color:${theme.primary}">${lot.quantity} Adet</strong> <span style="font-size:8px; color:${theme.textLight}">(${lot.date || 'İlk Stok'})</span></span>
+                                        <span style="color:${theme.success}; font-weight:bold;">Alış: ${lot.buyPrice}₺ | Satış: ${lot.sellPrice || p.sellPrice}₺</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; margin-top: 6px;">
+                            <button onclick="quickStockTransferModal(${p.id})" style="padding: 4px; background: ${theme.info}20; color: ${theme.info}; border: none; border-radius: 3px; cursor: pointer; font-size: 9px; font-weight: bold;">⚡ Transfer</button>
                             <button onclick="editProduct(${p.id})" style="padding: 4px; background: ${theme.warning}20; color: ${theme.warning}; border: none; border-radius: 3px; cursor: pointer; font-size: 9px;">✏️ Düzenle</button>
                             <button onclick="deleteProduct(${p.id})" style="padding: 4px; background: ${theme.error}20; color: ${theme.error}; border: none; border-radius: 3px; cursor: pointer; font-size: 9px;">🗑️ Sil</button>
                         </div>
@@ -1843,11 +2120,21 @@
                 if (p.warehouse < amount) { alert('⚠️ Depo stok yetersiz!'); return; }
                 p.warehouse -= amount;
                 p.shop += amount;
+                state.stockLog.push({
+                    id: Date.now(),
+                    productName: p.name,
+                    quantity: amount,
+                    type: 'in',
+                    date: new Date().toLocaleString('tr-TR'),
+                    user: (state.user && state.user.name) ? state.user.name : 'Sistem',
+                    note: `Depo -> Dükkan Transferi`
+                });
                 document.getElementById('edit-product-warehouse').value = p.warehouse;
                 document.getElementById('edit-product-shop').value = p.shop;
                 document.getElementById('edit-product-transfer').value = '';
-                alert(`✅ ${amount} adet Depo→Dükkan transfer edildi!`);
                 saveData();
+                filterInventory();
+                alert(`✅ ${amount} adet Depo→Dükkan transfer edildi!`);
             };
 
             window.closeProductEdit = function() {
@@ -2097,17 +2384,22 @@
                 const product = state.products.find(p => p.id === productId);
                 if (!product) return;
 
-                // stockLots'a ekle (alış + satış fiyatı ile)
-                if (!product.stockLots) product.stockLots = [];
+                // 1. Önce eski/mevcut stoku Parti 1 olarak sabitle
+                ensureStockLots(product);
+
+                // 2. Yeni partiyi (Parti 2) stockLots'a ekle (alış + satış fiyatı ile)
                 product.stockLots.push({
+                    id: 'lot-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
                     buyPrice: buyPrice,
                     sellPrice: sellPrice,
                     quantity: quantity,
+                    initialQuantity: quantity,
                     date: new Date().toLocaleString('tr-TR')
                 });
 
-                // Ürünün genel satış fiyatını güncelle
+                // 3. Ürünün güncel satış ve alış fiyatlarını güncelle
                 product.sellPrice = sellPrice;
+                product.buyPrice = buyPrice;
 
                 // Depo stokunu güncelle
                 product.warehouse += quantity;
