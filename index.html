@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Çağdaş PetShop v4.2 COMPLETE</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Çağdaş PetShop">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3047/3047928.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&family=Nunito:wght@400;600;800&family=Playfair+Display:wght@600;800&family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -93,16 +103,114 @@
     <div id="app"></div>
 
     <script>
-        // ========== THEME SYSTEM ==========
+        // ========== ENHANCED THEME ENGINE & PATTERNS ==========
+        const presetPatterns = {
+            paw: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60"><g fill="%236366f1" fill-opacity="0.18"><circle cx="20" cy="15" r="4"/><circle cx="30" cy="10" r="4"/><circle cx="40" cy="15" r="4"/><ellipse cx="30" cy="28" rx="9" ry="8"/><circle cx="50" cy="45" r="3"/><circle cx="55" cy="40" r="3"/><ellipse cx="50" cy="52" rx="6" ry="5"/></g></svg>`,
+            grid: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="%2394a3b8" stroke-width="1" stroke-opacity="0.25"/></svg>`,
+            mesh: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2" fill="%23a855f7" fill-opacity="0.35"/></svg>`,
+            wood: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50"><path d="M0 0 h50 v25 h-50 z M0 25 h50 v25 h-50 z" fill="none" stroke="%23d97706" stroke-width="1" stroke-opacity="0.2" stroke-dasharray="3,3"/></svg>`,
+            floral: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="3" fill="%23ec4899" fill-opacity="0.3"/><circle cx="15" cy="9" r="2" fill="%23ec4899" fill-opacity="0.2"/><circle cx="15" cy="21" r="2" fill="%23ec4899" fill-opacity="0.2"/><circle cx="9" cy="15" r="2" fill="%23ec4899" fill-opacity="0.2"/><circle cx="21" cy="15" r="2" fill="%23ec4899" fill-opacity="0.2"/></svg>`,
+            none: ''
+        };
+
         const themes = {
-            purple: { name: '🟣 Mor', primary: '#9333ea', background: '#f9f5ff', card: '#ffffff', text: '#1f2937', textLight: '#6b7280', success: '#10b981', error: '#ef4444', warning: '#f59e0b', info: '#3b82f6' },
-            blue: { name: '🔵 Mavi', primary: '#3b82f6', background: '#f0f9ff', card: '#ffffff', text: '#1f2937', textLight: '#6b7280', success: '#10b981', error: '#ef4444', warning: '#f59e0b', info: '#3b82f6' },
-            green: { name: '🟢 Yeşil', primary: '#10b981', background: '#f0fdf4', card: '#ffffff', text: '#1f2937', textLight: '#6b7280', success: '#10b981', error: '#ef4444', warning: '#f59e0b', info: '#3b82f6' },
-            dark: { name: '🌙 Koyu', primary: '#6366f1', background: '#1f2937', card: '#374151', text: '#f3f4f6', textLight: '#d1d5db', success: '#10b981', error: '#ef4444', warning: '#f59e0b', info: '#60a5fa' },
-            red: { name: '🔴 Kırmızı', primary: '#dc2626', background: '#fef2f2', card: '#ffffff', text: '#1f2937', textLight: '#6b7280', success: '#10b981', error: '#ef4444', warning: '#f59e0b', info: '#3b82f6' }
+            purple: { name: '🟣 Mor & Pembe Degrade', primary: '#9333ea', secondary: '#ec4899', isGradient: true, background: '#f9f5ff', card: '#ffffff', text: '#1f2937', textLight: '#6b7280', success: '#10b981', error: '#ef4444', warning: '#f59e0b', info: '#3b82f6', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', cardRadius: '8px', cardGlass: false, bgImage: '', bgOpacity: 0.15, bgBlur: 0 },
+            ocean: { name: '🔵 Okyanus Mavi & Turkuaz', primary: '#2563eb', secondary: '#06b6d4', isGradient: true, background: '#f0f9ff', card: '#ffffff', text: '#1f2937', textLight: '#6b7280', success: '#10b981', error: '#ef4444', warning: '#f59e0b', info: '#3b82f6', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', cardRadius: '8px', cardGlass: false, bgImage: '', bgOpacity: 0.15, bgBlur: 0 },
+            emerald: { name: '🟢 Zümrüt & Nane Yeşil', primary: '#059669', secondary: '#10b981', isGradient: true, background: '#f0fdf4', card: '#ffffff', text: '#1f2937', textLight: '#6b7280', success: '#10b981', error: '#ef4444', warning: '#f59e0b', info: '#3b82f6', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', cardRadius: '8px', cardGlass: false, bgImage: '', bgOpacity: 0.15, bgBlur: 0 },
+            dark: { name: '🌙 Gece Koyu & Mor', primary: '#6366f1', secondary: '#a855f7', isGradient: true, background: '#0f172a', card: '#1e293b', text: '#f8fafc', textLight: '#94a3b8', success: '#10b981', error: '#ef4444', warning: '#f59e0b', info: '#60a5fa', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', cardRadius: '10px', cardGlass: true, bgImage: presetPatterns.mesh, bgOpacity: 0.3, bgBlur: 0 },
+            fire: { name: '🔴 Ateş & Kehribar', primary: '#dc2626', secondary: '#f97316', isGradient: true, background: '#fff7ed', card: '#ffffff', text: '#1f2937', textLight: '#6b7280', success: '#10b981', error: '#ef4444', warning: '#f59e0b', info: '#3b82f6', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', cardRadius: '8px', cardGlass: false, bgImage: '', bgOpacity: 0.15, bgBlur: 0 },
+            luxury: { name: '👑 Şık Altın & Gece', primary: '#d97706', secondary: '#f59e0b', isGradient: true, background: '#090d16', card: '#151e30', text: '#fef3c7', textLight: '#d97706', success: '#10b981', error: '#ef4444', warning: '#f59e0b', info: '#3b82f6', fontFamily: "'Playfair Display', Georgia, serif", cardRadius: '12px', cardGlass: true, bgImage: presetPatterns.wood, bgOpacity: 0.25, bgBlur: 0 },
+            cyberpunk: { name: '🦩 Cyberpunk Neon', primary: '#ec4899', secondary: '#00f2fe', isGradient: true, background: '#080b12', card: '#111827', text: '#f3f4f6', textLight: '#9ca3af', success: '#10b981', error: '#ef4444', warning: '#f59e0b', info: '#06b6d4', fontFamily: "'Montserrat', sans-serif", cardRadius: '16px', cardGlass: true, bgImage: presetPatterns.grid, bgOpacity: 0.2, bgBlur: 0 },
+            pawTheme: { name: '🐾 PetShop Özel Pati', primary: '#6366f1', secondary: '#8b5cf6', isGradient: true, background: '#f8fafc', card: '#ffffff', text: '#1e293b', textLight: '#64748b', success: '#10b981', error: '#ef4444', warning: '#f59e0b', info: '#3b82f6', fontFamily: "'Nunito', sans-serif", cardRadius: '14px', cardGlass: false, bgImage: presetPatterns.paw, bgOpacity: 0.8, bgBlur: 0 }
         };
 
         let theme = themes.purple;
+
+        try {
+            const savedCustomTheme = localStorage.getItem('cagdas_custom_theme');
+            if (savedCustomTheme) {
+                theme = JSON.parse(savedCustomTheme);
+            } else {
+                const savedThemeKey = localStorage.getItem('theme');
+                if (savedThemeKey && themes[savedThemeKey]) {
+                    theme = themes[savedThemeKey];
+                }
+            }
+        } catch(e) {}
+
+        function applyThemeStyles() {
+            let styleTag = document.getElementById('dynamic-theme-css');
+            if (!styleTag) {
+                styleTag = document.createElement('style');
+                styleTag.id = 'dynamic-theme-css';
+                document.head.appendChild(styleTag);
+            }
+
+            const currentPrimary = theme.primary || '#6366f1';
+            const currentSecondary = theme.secondary || currentPrimary;
+            const isGrad = theme.isGradient !== false;
+            const fontFam = theme.fontFamily || '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            const radius = theme.cardRadius || '8px';
+            const isGlass = theme.cardGlass === true;
+
+            const bgImgUrl = theme.bgImage || '';
+            const bgOpacity = theme.bgOpacity !== undefined ? theme.bgOpacity : 0.2;
+            const bgBlur = theme.bgBlur || 0;
+
+            const headerGradient = isGrad 
+                ? `linear-gradient(135deg, ${currentPrimary} 0%, ${currentSecondary} 100%)`
+                : currentPrimary;
+
+            const bgStyleRule = bgImgUrl ? `
+                body::before {
+                    content: "";
+                    position: fixed;
+                    inset: 0;
+                    background-image: url("${bgImgUrl}");
+                    background-size: cover;
+                    background-position: center;
+                    background-repeat: repeat;
+                    opacity: ${bgOpacity};
+                    filter: blur(${bgBlur}px);
+                    pointer-events: none;
+                    z-index: -1;
+                }
+            ` : `
+                body::before { content: none !important; }
+            `;
+
+            const glassStyleRule = isGlass ? `
+                .card, .drawer {
+                    backdrop-filter: blur(12px) !important;
+                    -webkit-backdrop-filter: blur(12px) !important;
+                    background-color: ${theme.card}e6 !important;
+                }
+            ` : '';
+
+            styleTag.textContent = `
+                body {
+                    font-family: ${fontFam} !important;
+                    background-color: ${theme.background || '#f9f5ff'} !important;
+                    color: ${theme.text || '#1f2937'} !important;
+                    position: relative;
+                }
+                .header {
+                    background: ${headerGradient} !important;
+                }
+                .card {
+                    border-radius: ${radius} !important;
+                    background-color: ${theme.card || '#ffffff'};
+                }
+                .drawer-nav-item.active {
+                    background: ${headerGradient} !important;
+                    box-shadow: 0 4px 12px ${currentPrimary}40 !important;
+                }
+                ${bgStyleRule}
+                ${glassStyleRule}
+            `;
+        }
+
+        applyThemeStyles();
 
         // ========== ENHANCED GLOBAL CAMERA & SCANNER ENGINE ==========
         let activeCameraStream = null;
@@ -4855,25 +4963,411 @@
             return `<span style="font-size: 20px;">${value}</span>`;
         }
 
-        // ========== TEMA SEÇİMİ ==========
+        // ========== TEMA VE GÖRSEL TASARIM MOTORU ==========
         function renderTheme(screen) {
+            let activeTab = 'presets';
+
             screen.innerHTML = `
-                <div class="grid-2">
-                    ${Object.keys(themes).map(key => `
-                        <div style="background: ${themes[key].card}; padding: 12px; border-radius: 8px; border: 2px solid ${theme.name === themes[key].name ? themes[key].primary : '#ccc'}; cursor: pointer; text-align: center;" onclick="changeTheme('${key}')">
-                            <div style="font-size: 24px; margin-bottom: 6px;">●</div>
-                            <div style="font-weight: bold; color: ${themes[key].primary}; font-size: 12px;">${themes[key].name}</div>
-                            <div style="font-size: 10px; color: ${themes[key].textLight}; margin-top: 4px;">Seç</div>
+                <!-- BİLGİ VE BAŞLIK -->
+                <div class="card" style="border-left: 4px solid ${theme.primary}; background: linear-gradient(135deg, ${theme.card}, ${theme.background}); margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 14px; font-weight: 900; color: ${theme.primary}; display: flex; align-items: center; gap: 6px;">
+                                🎨 Gelişmiş Tema & Görsel Tasarım Motoru
+                            </div>
+                            <div style="font-size: 10px; color: ${theme.textLight}; margin-top: 4px;">
+                                Çift renkli (degrade) temalar, özel arka plan görselleri, duvar kağıtları, fontlar ve kart stilleri.
+                            </div>
                         </div>
-                    `).join('')}
+                        <button onclick="resetToDefaultTheme()" style="padding: 6px 12px; background: ${theme.error}20; color: ${theme.error}; border: 1px solid ${theme.error}; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold;">
+                            🔄 Sıfırla
+                        </button>
+                    </div>
+                </div>
+
+                <!-- CANLI ÖNİZLEME KARTI (LIVE PREVIEW BOX) -->
+                <div class="card" id="theme-live-preview-box" style="margin-bottom: 16px; border: 2px dashed ${theme.primary}50; padding: 12px; position: relative; overflow: hidden;">
+                    <div style="font-size: 9px; font-weight: 900; color: ${theme.primary}; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: flex; justify-content: space-between;">
+                        <span>👁️ CANLI TEMA ÖNİZLEMESİ</span>
+                        <span id="preview-theme-name" style="color: ${theme.success}">${theme.name || 'Özel Tema'}</span>
+                    </div>
+
+                    <div style="border-radius: 8px; overflow: hidden; border: 1px solid rgba(0,0,0,0.1); background: ${theme.background};">
+                        <!-- Mini Header Bar -->
+                        <div style="padding: 8px 12px; background: ${theme.isGradient !== false ? `linear-gradient(135deg, ${theme.primary}, ${theme.secondary || theme.primary})` : theme.primary}; color: white; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="font-weight: bold; font-size: 11px; display: flex; align-items: center; gap: 4px;">
+                                <span>🐾 Çağdaş PetShop</span>
+                            </div>
+                            <span style="font-size: 8px; padding: 2px 6px; background: rgba(255,255,255,0.25); border-radius: 10px;">🟢 Canlı Kasa</span>
+                        </div>
+
+                        <!-- Mini Sample Card -->
+                        <div style="padding: 10px;">
+                            <div style="background: ${theme.card}; padding: 10px; border-radius: ${theme.cardRadius || '8px'}; border-left: 3px solid ${theme.primary}; margin-bottom: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; color: ${theme.text}; margin-bottom: 4px;">
+                                    <span>📦 Örnek Ürün Kartı</span>
+                                    <span style="color: ${theme.success};">150₺</span>
+                                </div>
+                                <div style="font-size: 9px; color: ${theme.textLight}; margin-bottom: 8px;">
+                                    Yazı Tipi: <strong style="color: ${theme.primary}; font-family: ${theme.fontFamily}">${theme.fontFamily ? theme.fontFamily.split(',')[0].replace(/['"]/g, '') : 'Sistem'}</strong>
+                                </div>
+                                <div style="display: flex; gap: 4px;">
+                                    <button style="flex: 1; padding: 6px; background: ${theme.isGradient !== false ? `linear-gradient(135deg, ${theme.primary}, ${theme.secondary || theme.primary})` : theme.primary}; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 9px; cursor: pointer;">
+                                        🛒 Satın Al (Degrade)
+                                    </button>
+                                    <button style="padding: 6px 10px; background: ${theme.background}; color: ${theme.primary}; border: 1px solid ${theme.primary}; border-radius: 4px; font-weight: bold; font-size: 9px; cursor: pointer;">
+                                        ℹ️ Detay
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ÖZELLEŞTİRME SEKMELERİ -->
+                <div style="display: flex; gap: 4px; margin-bottom: 12px; border-bottom: 2px solid ${theme.primary}20; padding-bottom: 6px; overflow-x: auto;">
+                    <button onclick="switchThemeTab('presets')" id="tab-btn-presets" class="tab-btn" style="padding: 8px 12px; border-radius: 6px; border: none; font-weight: bold; font-size: 11px; cursor: pointer; background: ${theme.primary}; color: white;">🎨 Presets (Paketler)</button>
+                    <button onclick="switchThemeTab('colors')" id="tab-btn-colors" class="tab-btn" style="padding: 8px 12px; border-radius: 6px; border: 1px solid ${theme.primary}; font-weight: bold; font-size: 11px; cursor: pointer; background: transparent; color: ${theme.text};">🌈 Çift Renk & Degrade</button>
+                    <button onclick="switchThemeTab('background')" id="tab-btn-background" class="tab-btn" style="padding: 8px 12px; border-radius: 6px; border: 1px solid ${theme.primary}; font-weight: bold; font-size: 11px; cursor: pointer; background: transparent; color: ${theme.text};">🖼️ Arka Plan & Görsel</button>
+                    <button onclick="switchThemeTab('typography')" id="tab-btn-typography" class="tab-btn" style="padding: 8px 12px; border-radius: 6px; border: 1px solid ${theme.primary}; font-weight: bold; font-size: 11px; cursor: pointer; background: transparent; color: ${theme.text};">✒️ Tipografi & Stil</button>
+                </div>
+
+                <!-- TAB CONTENT CONTAINER -->
+                <div id="theme-tab-content"></div>
+
+                <!-- KAYDET VE UYGULA BUTONU -->
+                <div style="margin-top: 16px; padding: 12px; background: ${theme.card}; border-radius: 8px; border-top: 3px solid ${theme.success};">
+                    <button onclick="saveAndApplyCustomTheme()" style="width: 100%; padding: 12px; background: linear-gradient(135deg, ${theme.success}, ${theme.primary}); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 12px ${theme.success}40;">
+                        💾 Tüm Ayarları Kaydet ve Uygula
+                    </button>
                 </div>
             `;
 
-            window.changeTheme = function(themeName) {
-                theme = themes[themeName];
-                try { localStorage.setItem('theme', themeName); } catch(e) {}
-                render();
+            // Tab değiştirme ve render fonksiyonları
+            window.switchThemeTab = function(tabName) {
+                activeTab = tabName;
+                ['presets', 'colors', 'background', 'typography'].forEach(t => {
+                    const btn = document.getElementById(`tab-btn-${t}`);
+                    if (btn) {
+                        if (t === tabName) {
+                            btn.style.background = theme.primary;
+                            btn.style.color = '#ffffff';
+                        } else {
+                            btn.style.background = 'transparent';
+                            btn.style.color = theme.text;
+                        }
+                    }
+                });
+
+                const content = document.getElementById('theme-tab-content');
+                if (!content) return;
+
+                if (tabName === 'presets') {
+                    renderPresetsTab(content);
+                } else if (tabName === 'colors') {
+                    renderColorsTab(content);
+                } else if (tabName === 'background') {
+                    renderBackgroundTab(content);
+                } else if (tabName === 'typography') {
+                    renderTypographyTab(content);
+                }
             };
+
+            // TAB 1: PRESETS
+            function renderPresetsTab(container) {
+                container.innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px;">
+                        ${Object.keys(themes).map(key => {
+                            const t = themes[key];
+                            const isCurrent = theme.name === t.name;
+                            return `
+                                <div style="background: ${t.card}; padding: 10px; border-radius: 10px; border: 2px solid ${isCurrent ? t.primary : t.primary + '30'}; cursor: pointer; text-align: center; position: relative; transition: all 0.2s; box-shadow: ${isCurrent ? '0 4px 12px ' + t.primary + '30' : 'none'};" onclick="selectPresetTheme('${key}')">
+                                    <!-- Çift Renk Çemberi -->
+                                    <div style="display: flex; justify-content: center; align-items: center; gap: -4px; margin-bottom: 8px;">
+                                        <div style="width: 22px; height: 22px; border-radius: 50%; background: ${t.primary}; border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div>
+                                        <div style="width: 22px; height: 22px; border-radius: 50%; background: ${t.secondary || t.primary}; border: 2px solid #fff; margin-left: -8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div>
+                                    </div>
+                                    <div style="font-weight: bold; color: ${t.primary}; font-size: 11px; margin-bottom: 2px;">${t.name}</div>
+                                    <div style="font-size: 8px; color: ${t.textLight};">${t.isGradient ? '🌈 Çift Degrade' : '🎨 Düz Renk'}</div>
+                                    ${isCurrent ? `<div style="margin-top: 6px; font-size: 9px; font-weight: bold; color: ${t.success};">✅ Seçili</div>` : `<button style="margin-top: 6px; width: 100%; padding: 4px; background: ${t.primary}15; color: ${t.primary}; border: 1px solid ${t.primary}30; border-radius: 4px; cursor: pointer; font-size: 9px; font-weight: bold;">Uygula</button>`}
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            }
+
+            // TAB 2: COLORS & GRADIENT
+            function renderColorsTab(container) {
+                container.innerHTML = `
+                    <div class="card" style="border-left: 3px solid ${theme.primary};">
+                        <div style="font-size: 12px; font-weight: bold; color: ${theme.primary}; margin-bottom: 12px;">🎨 Renk Paleti ve Çift Renk (Degrade) Ayarları</div>
+                        
+                        <div style="margin-bottom: 12px; padding: 8px; background: ${theme.background}; border-radius: 6px; border: 1px solid ${theme.primary}30;">
+                            <label style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; font-weight: bold; color: ${theme.primary}; cursor: pointer;">
+                                <span>🌈 Çift Renkli / Degrade Geçişi Kullan</span>
+                                <input type="checkbox" id="ctrl-gradient-toggle" ${theme.isGradient !== false ? 'checked' : ''} onchange="updateCustomThemeFromUI()" style="width: 16px; height: 16px;" />
+                            </label>
+                        </div>
+
+                        <div class="grid-2" style="gap: 10px; margin-bottom: 12px;">
+                            <div>
+                                <label style="font-size: 10px; font-weight: bold; color: ${theme.text}; display: block; margin-bottom: 4px;">🟣 Ana Renk (Primary)</label>
+                                <div style="display: flex; gap: 6px; align-items: center;">
+                                    <input type="color" id="ctrl-primary-color" value="${theme.primary || '#6366f1'}" onchange="updateCustomThemeFromUI()" style="width: 36px; height: 32px; border: none; border-radius: 4px; cursor: pointer; background: transparent;" />
+                                    <input type="text" id="ctrl-primary-hex" value="${theme.primary || '#6366f1'}" onchange="document.getElementById('ctrl-primary-color').value=this.value; updateCustomThemeFromUI();" style="flex: 1; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px; font-family: monospace;" />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label style="font-size: 10px; font-weight: bold; color: ${theme.text}; display: block; margin-bottom: 4px;">💖 İkincil Renk (Degrade Rengi)</label>
+                                <div style="display: flex; gap: 6px; align-items: center;">
+                                    <input type="color" id="ctrl-secondary-color" value="${theme.secondary || theme.primary || '#8b5cf6'}" onchange="updateCustomThemeFromUI()" style="width: 36px; height: 32px; border: none; border-radius: 4px; cursor: pointer; background: transparent;" />
+                                    <input type="text" id="ctrl-secondary-hex" value="${theme.secondary || theme.primary || '#8b5cf6'}" onchange="document.getElementById('ctrl-secondary-color').value=this.value; updateCustomThemeFromUI();" style="flex: 1; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px; font-family: monospace;" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid-3" style="gap: 8px; margin-bottom: 8px;">
+                            <div>
+                                <label style="font-size: 9px; font-weight: bold;">🖼️ Arka Plan Rengi</label>
+                                <input type="color" id="ctrl-bg-color" value="${theme.background || '#f9f5ff'}" onchange="updateCustomThemeFromUI()" style="width: 100%; height: 28px; border: none; border-radius: 4px; cursor: pointer; background: transparent;" />
+                            </div>
+
+                            <div>
+                                <label style="font-size: 9px; font-weight: bold;">🔲 Kart Rengi</label>
+                                <input type="color" id="ctrl-card-color" value="${theme.card || '#ffffff'}" onchange="updateCustomThemeFromUI()" style="width: 100%; height: 28px; border: none; border-radius: 4px; cursor: pointer; background: transparent;" />
+                            </div>
+
+                            <div>
+                                <label style="font-size: 9px; font-weight: bold;">✏️ Metin Rengi</label>
+                                <input type="color" id="ctrl-text-color" value="${theme.text || '#1f2937'}" onchange="updateCustomThemeFromUI()" style="width: 100%; height: 28px; border: none; border-radius: 4px; cursor: pointer; background: transparent;" />
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // TAB 3: BACKGROUND & WALLPAPER
+            function renderBackgroundTab(container) {
+                container.innerHTML = `
+                    <div class="card" style="border-left: 3px solid ${theme.primary};">
+                        <div style="font-size: 12px; font-weight: bold; color: ${theme.primary}; margin-bottom: 12px;">🖼️ Arka Plan Duvar Kağıdı ve Doku Ayarları</div>
+
+                        <!-- CİHAZDAN GÖRSEL YÜKLEME -->
+                        <div style="margin-bottom: 12px; padding: 10px; background: ${theme.background}; border-radius: 6px; border: 1px dashed ${theme.primary};">
+                            <div style="font-weight: bold; font-size: 11px; color: ${theme.primary}; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                                📤 Cihazınızdan Arka Plan Fotoğrafı Yükleyin
+                            </div>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <button onclick="document.getElementById('ctrl-bg-file').click()" style="flex: 1; padding: 8px; background: ${theme.primary}; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;">
+                                    🖼️ Fotoğraf Seç / Yükle
+                                </button>
+                                <input type="file" id="ctrl-bg-file" accept="image/*" class="hidden" onchange="handleBgFileUpload(event)" />
+                                ${theme.bgImage ? `
+                                    <button onclick="clearCustomBgImage()" style="padding: 8px 12px; background: ${theme.error}20; color: ${theme.error}; border: 1px solid ${theme.error}; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;">
+                                        🗑️ Kaldır
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+
+                        <!-- HAZIR PATTERN VE DESENLER -->
+                        <div style="margin-bottom: 12px;">
+                            <label style="font-size: 10px; font-weight: bold; color: ${theme.text}; display: block; margin-bottom: 6px;">✨ Hazır Arka Plan Desenleri & Dokular</label>
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+                                <button onclick="setPresetPattern('paw')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.primary}40; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold;">🐾 Pati Deseni</button>
+                                <button onclick="setPresetPattern('grid')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.primary}40; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold;">📐 Izgara</button>
+                                <button onclick="setPresetPattern('mesh')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.primary}40; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold;">🌌 Uzay Noktaları</button>
+                                <button onclick="setPresetPattern('wood')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.primary}40; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold;">🌲 Ahşap Doku</button>
+                                <button onclick="setPresetPattern('floral')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.primary}40; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold;">🌸 Çiçek Benekli</button>
+                                <button onclick="setPresetPattern('none')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.error}40; color: ${theme.error}; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold;">🚫 Desensiz</button>
+                            </div>
+                        </div>
+
+                        <!-- OPAKLIK VE BLUR SLIDERLARI -->
+                        <div style="margin-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: bold; margin-bottom: 2px;">
+                                <span>Doku / Görsel Opaklığı (Şeffaflık)</span>
+                                <span id="bg-opacity-val">${Math.round((theme.bgOpacity !== undefined ? theme.bgOpacity : 0.2) * 100)}%</span>
+                            </div>
+                            <input type="range" id="ctrl-bg-opacity" min="0" max="1" step="0.05" value="${theme.bgOpacity !== undefined ? theme.bgOpacity : 0.2}" oninput="document.getElementById('bg-opacity-val').textContent=Math.round(this.value*100)+'%'; updateCustomThemeFromUI();" style="width: 100%;" />
+                        </div>
+
+                        <div>
+                            <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: bold; margin-bottom: 2px;">
+                                <span>Görsel Bulanıklığı (Blur Etkisi)</span>
+                                <span id="bg-blur-val">${theme.bgBlur || 0}px</span>
+                            </div>
+                            <input type="range" id="ctrl-bg-blur" min="0" max="20" step="1" value="${theme.bgBlur || 0}" oninput="document.getElementById('bg-blur-val').textContent=this.value+'px'; updateCustomThemeFromUI();" style="width: 100%;" />
+                        </div>
+                    </div>
+                `;
+            }
+
+            // TAB 4: TYPOGRAPHY & CARD STYLES
+            function renderTypographyTab(container) {
+                container.innerHTML = `
+                    <div class="card" style="border-left: 3px solid ${theme.primary};">
+                        <div style="font-size: 12px; font-weight: bold; color: ${theme.primary}; margin-bottom: 12px;">✒️ Tipografi (Yazı Tipi) ve Kart Yuvarlatma Ayarları</div>
+
+                        <!-- FONT SEÇİMİ -->
+                        <div style="margin-bottom: 12px;">
+                            <label style="font-size: 10px; font-weight: bold; color: ${theme.text}; display: block; margin-bottom: 4px;">🔤 Yazı Tipi Ailesi (Font Family)</label>
+                            <select id="ctrl-font-family" onchange="updateCustomThemeFromUI()" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px;">
+                                <option value='-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' ${theme.fontFamily && theme.fontFamily.includes('Segoe') ? 'selected' : ''}>Sistem Modern (Segoe UI / Roboto)</option>
+                                <option value="'Nunito', sans-serif" ${theme.fontFamily && theme.fontFamily.includes('Nunito') ? 'selected' : ''}>Nunito (Yuvarlak & Sevimli)</option>
+                                <option value="'Poppins', sans-serif" ${theme.fontFamily && theme.fontFamily.includes('Poppins') ? 'selected' : ''}>Poppins (Düzgün & Geometrik)</option>
+                                <option value="'Montserrat', sans-serif" ${theme.fontFamily && theme.fontFamily.includes('Montserrat') ? 'selected' : ''}>Montserrat (Modern & Şık)</option>
+                                <option value="'Playfair Display', Georgia, serif" ${theme.fontFamily && theme.fontFamily.includes('Playfair') ? 'selected' : ''}>Playfair Display (Lüks Serif)</option>
+                                <option value="'Courier New', monospace" ${theme.fontFamily && theme.fontFamily.includes('Courier') ? 'selected' : ''}>Courier (Retro Kod)</option>
+                            </select>
+                        </div>
+
+                        <!-- KART KÖŞE YUVARLATMA -->
+                        <div style="margin-bottom: 12px;">
+                            <label style="font-size: 10px; font-weight: bold; color: ${theme.text}; display: block; margin-bottom: 6px;">🔲 Kart Köşe Yuvarlatma (Border Radius)</label>
+                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
+                                <button onclick="setCardRadius('0px')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.cardRadius === '0px' ? theme.primary : '#ccc'}; border-radius: 0px; cursor: pointer; font-size: 10px; font-weight: bold;">0px Keskin</button>
+                                <button onclick="setCardRadius('8px')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.cardRadius === '8px' || !theme.cardRadius ? theme.primary : '#ccc'}; border-radius: 8px; cursor: pointer; font-size: 10px; font-weight: bold;">8px Standart</button>
+                                <button onclick="setCardRadius('16px')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.cardRadius === '16px' ? theme.primary : '#ccc'}; border-radius: 12px; cursor: pointer; font-size: 10px; font-weight: bold;">16px Yumuşak</button>
+                                <button onclick="setCardRadius('24px')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.cardRadius === '24px' ? theme.primary : '#ccc'}; border-radius: 20px; cursor: pointer; font-size: 10px; font-weight: bold;">24px Pill</button>
+                            </div>
+                        </div>
+
+                        <!-- BUZLU CAM / GLASSMORPHISM TOGGLE -->
+                        <div style="padding: 8px; background: ${theme.background}; border-radius: 6px; border: 1px solid ${theme.primary}30;">
+                            <label style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; font-weight: bold; color: ${theme.primary}; cursor: pointer;">
+                                <span>✨ Buzlu Cam Efekti (Glassmorphism Blur)</span>
+                                <input type="checkbox" id="ctrl-glass-toggle" ${theme.cardGlass ? 'checked' : ''} onchange="updateCustomThemeFromUI()" style="width: 16px; height: 16px;" />
+                            </label>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // INTERACTION HELPERS
+            window.selectPresetTheme = function(presetKey) {
+                if (!themes[presetKey]) return;
+                theme = Object.assign({}, themes[presetKey]);
+                theme.name = themes[presetKey].name;
+                applyThemeStyles();
+                window.switchThemeTab(activeTab);
+                updateLivePreviewBox();
+            };
+
+            window.updateCustomThemeFromUI = function() {
+                const prim = document.getElementById('ctrl-primary-color')?.value || theme.primary;
+                const sec = document.getElementById('ctrl-secondary-color')?.value || theme.secondary || prim;
+                const isGrad = document.getElementById('ctrl-gradient-toggle') ? document.getElementById('ctrl-gradient-toggle').checked : theme.isGradient;
+                const bg = document.getElementById('ctrl-bg-color')?.value || theme.background;
+                const card = document.getElementById('ctrl-card-color')?.value || theme.card;
+                const text = document.getElementById('ctrl-text-color')?.value || theme.text;
+                const op = document.getElementById('ctrl-bg-opacity') ? parseFloat(document.getElementById('ctrl-bg-opacity').value) : theme.bgOpacity;
+                const blur = document.getElementById('ctrl-bg-blur') ? parseInt(document.getElementById('ctrl-bg-blur').value, 10) : theme.bgBlur;
+                const font = document.getElementById('ctrl-font-family')?.value || theme.fontFamily;
+                const glass = document.getElementById('ctrl-glass-toggle') ? document.getElementById('ctrl-glass-toggle').checked : theme.cardGlass;
+
+                theme.primary = prim;
+                theme.secondary = sec;
+                theme.isGradient = isGrad;
+                theme.background = bg;
+                theme.card = card;
+                theme.text = text;
+                theme.bgOpacity = op;
+                theme.bgBlur = blur;
+                theme.fontFamily = font;
+                theme.cardGlass = glass;
+                theme.name = '🎨 Özel Tasarım';
+
+                if (document.getElementById('ctrl-primary-hex')) document.getElementById('ctrl-primary-hex').value = prim;
+                if (document.getElementById('ctrl-secondary-hex')) document.getElementById('ctrl-secondary-hex').value = sec;
+
+                applyThemeStyles();
+                updateLivePreviewBox();
+            };
+
+            window.setPresetPattern = function(patternKey) {
+                theme.bgImage = presetPatterns[patternKey] || '';
+                applyThemeStyles();
+                updateLivePreviewBox();
+            };
+
+            window.handleBgFileUpload = function(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        const maxDim = 1000;
+                        let w = img.width;
+                        let h = img.height;
+                        if (w > maxDim || h > maxDim) {
+                            if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+                            else { w = Math.round((w * maxDim) / h); h = maxDim; }
+                        }
+                        canvas.width = w;
+                        canvas.height = h;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, w, h);
+                        theme.bgImage = canvas.toDataURL('image/jpeg', 0.8);
+                        applyThemeStyles();
+                        updateLivePreviewBox();
+                        alert('✅ Arka plan duvar kağıdı yüklendi!');
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            };
+
+            window.clearCustomBgImage = function() {
+                theme.bgImage = '';
+                applyThemeStyles();
+                updateLivePreviewBox();
+            };
+
+            window.setCardRadius = function(radiusStr) {
+                theme.cardRadius = radiusStr;
+                applyThemeStyles();
+                window.switchThemeTab('typography');
+                updateLivePreviewBox();
+            };
+
+            function updateLivePreviewBox() {
+                const previewName = document.getElementById('preview-theme-name');
+                if (previewName) previewName.textContent = theme.name || 'Özel Tema';
+            }
+
+            window.saveAndApplyCustomTheme = function() {
+                try {
+                    localStorage.setItem('cagdas_custom_theme', JSON.stringify(theme));
+                    state.customTheme = Object.assign({}, theme);
+                    saveData();
+                    applyThemeStyles();
+                    alert('✅ Tema ve görsel tasarım ayarları başarıyla kaydedildi ve tüm uygulamaya uygulandı!');
+                    render();
+                } catch(e) {
+                    console.error(e);
+                    alert('⚠️ Tema kaydedilirken hata oluştu.');
+                }
+            };
+
+            window.resetToDefaultTheme = function() {
+                if (!confirm('Varsayılan Mor temaya dönmek istediğinizden emin misiniz?')) return;
+                theme = Object.assign({}, themes.purple);
+                try { localStorage.removeItem('cagdas_custom_theme'); } catch(e){}
+                delete state.customTheme;
+                saveData();
+                applyThemeStyles();
+                render();
+                alert('✅ Varsayılan tema yüklendi!');
+            };
+
+            // İlk sekme yüklemesi
+            window.switchThemeTab('presets');
         }
 
         // ========== BACKUP & CLOUD SYNC ==========
@@ -5195,6 +5689,17 @@
             window.syncStateToCloud();
         } catch(err) {
             console.error("Firebase init error:", err);
+        }
+
+        // PWA Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').then(reg => {
+                    console.log('PWA Service Worker aktif:', reg.scope);
+                }).catch(err => {
+                    console.warn('Service Worker kaydı yapılamadı:', err);
+                });
+            });
         }
     </script>
 </body>
