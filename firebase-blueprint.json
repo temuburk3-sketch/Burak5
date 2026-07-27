@@ -1,0 +1,20 @@
+{
+  "entities": {
+    "appData": {
+      "title": "Application Data Snapshot",
+      "description": "Stores state snapshot for products, sales, customers, suppliers, expenses, returns, debts, stock log, cash log, and users",
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "object",
+          "description": "Complete application state object"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["data"]
+    }
+  }
+}

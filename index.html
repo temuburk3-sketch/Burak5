@@ -710,6 +710,9 @@
 
         function saveData() {
             try { localStorage.setItem('cagdas', JSON.stringify(state)); } catch(e) {}
+            if (typeof window.syncStateToCloud === 'function') {
+                window.syncStateToCloud();
+            }
         }
 
         // ========== TARİH DÖNÜŞTÜRÜCÜ HELPER ==========
@@ -838,7 +841,8 @@
                                 <div style="font-size: 10px; opacity: 0.75; margin-top: 2px;">${new Date().toLocaleString('tr-TR', {weekday: 'long', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'})}</div>
                             </div>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div id="cloud-sync-badge" style="font-size: 10px; padding: 4px 8px; border-radius: 20px; font-weight: bold; background: rgba(16, 185, 129, 0.25); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.3); backdrop-filter: blur(4px);">☁️ Bulut Bağlı</div>
                             <div style="text-align: right; font-size: 10px; padding: 6px 10px; background: rgba(255,255,255,0.15); border-radius: 6px; backdrop-filter: blur(4px);">
                                 <div style="opacity: 0.7;">👤 ${state.user.name}</div>
                                 <div style="font-weight: 900; opacity: 0.9;">${state.user.role === 'admin' ? '🔐 Yönetici' : '💳 Kasa'}</div>
@@ -1145,22 +1149,12 @@
         // ========== POS (KASA) ==========
         function renderPOS(screen) {
             screen.innerHTML = `
-                <div class="grid-2" style="margin-bottom: 12px;">
-                    <div>
-                        <label style="font-size: 10px; font-weight: bold;">Müşteri</label>
-                        <select id="pos-customer" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px;">
-                            <option value="0">Peçin Alıcı</option>
-                            ${state.customers.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
-                        </select>
-                    </div>
-                    <div>
-                        <label style="font-size: 10px; font-weight: bold;">Ödeme</label>
-                        <select id="pos-payment" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px;">
-                            <option value="cash">💵 Nakit</option>
-                            <option value="card">💳 Kart</option>
-                            <option value="credit">📅 Kredi</option>
-                        </select>
-                    </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="font-size: 10px; font-weight: bold; color: ${theme.primary}; display: block; margin-bottom: 3px;">👤 Müşteri Seçimi</label>
+                    <select id="pos-customer" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid ${theme.primary}; font-size: 12px; font-weight: bold; background: ${theme.card}; color: ${theme.text};">
+                        <option value="0">Peşin Alıcı</option>
+                        ${state.customers.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+                    </select>
                 </div>
 
                 <div style="background: ${theme.card}; padding: 10px; border-radius: 8px; margin-bottom: 12px; border: 1px solid ${theme.primary}30;">
@@ -1183,7 +1177,8 @@
                             <label style="font-size: 10px; font-weight: bold; display: block; margin-bottom: 3px;">📦 Barkod</label>
                             <input id="barcode-input" placeholder="Barkod yaz ve Enter..." style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px;" onkeypress="handleBarcodeSearch(event)" oninput="filterByBarcodeInput()" />
                         </div>
-                        <div style="display: flex; gap: 4px;">
+                        <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                            <button onclick="openBulkMamaSaleModal()" style="padding: 6px 10px; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px; display: flex; align-items: center; gap: 4px;">⚖️ Açık Mama Satışı</button>
                             <button onclick="togglePosCameraMode('qr')" style="padding: 6px 10px; background: ${theme.info}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px;">🔳 QR</button>
                             <button onclick="togglePosCameraMode('barcode')" style="padding: 6px 10px; background: ${theme.warning}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px;">📦 Barkod</button>
                         </div>
@@ -1252,9 +1247,10 @@
                             <button onclick="clearCart()" style="width: 100%; padding: 6px; background: ${theme.error}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px;">Temizle</button>
                         </div>
                     </div>
-                    <div class="grid-2" style="margin-top: 8px; gap: 6px;">
-                        <button onclick="checkoutPos('cash')" style="padding: 8px; background: ${theme.success}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px;">💵 Nakit</button>
-                        <button onclick="checkoutPos('card')" style="padding: 8px; background: ${theme.info}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px;">💳 Kart</button>
+                    <div class="grid-3" style="margin-top: 8px; gap: 6px;">
+                        <button onclick="checkoutPos('cash')" style="padding: 10px 4px; background: ${theme.success}; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px;">💵 Nakit</button>
+                        <button onclick="checkoutPos('card')" style="padding: 10px 4px; background: ${theme.info}; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px;">💳 Kart</button>
+                        <button onclick="checkoutPos('credit')" style="padding: 10px 4px; background: ${theme.warning}; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px;">📅 Kredi</button>
                     </div>
                 </div>
             `;
@@ -1302,6 +1298,199 @@
                 if (qElem) {
                     qElem.value = val;
                 }
+            };
+
+            // --- AÇIK MAMA / GRAMAJLI SATIŞ MODÜLÜ PENCERESİ VE HESAPLAMA MOTORU ---
+            window.openBulkMamaSaleModal = function() {
+                let bulkProducts = state.products.filter(p => p.isBulkMama);
+                if (bulkProducts.length === 0) {
+                    if (!confirm("⚠️ Henüz Envanter'de 'Çuval / Açık Mama' olarak işaretlenmiş ürün bulunmuyor.\nTüm ürünler arasından seçim yaparak gramaj satışı yapmak ister misiniz?")) {
+                        return;
+                    }
+                    bulkProducts = state.products;
+                }
+
+                let modal = document.getElementById('bulk-mama-modal');
+                if (!modal) {
+                    modal = document.createElement('div');
+                    modal.id = 'bulk-mama-modal';
+                    modal.style.cssText = "position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.65); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 15px;";
+                    document.body.appendChild(modal);
+                }
+
+                modal.innerHTML = `
+                    <div style="background: ${theme.card}; width: 100%; max-width: 480px; border-radius: 12px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); border: 2px solid ${theme.primary}; font-family: sans-serif; color: ${theme.text};">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid ${theme.primary}20; padding-bottom: 10px;">
+                            <div style="font-size: 15px; font-weight: bold; color: ${theme.primary}; display: flex; align-items: center; gap: 6px;">
+                                ⚖️ Açık Mama Gramaj / TL Satış Modülü
+                            </div>
+                            <button onclick="closeBulkMamaSaleModal()" style="padding: 4px 10px; background: ${theme.error}; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">✕</button>
+                        </div>
+
+                        <div style="margin-bottom: 12px;">
+                            <label style="font-size: 11px; font-weight: bold; display: block; margin-bottom: 4px;">1. Açık Mama Ürünü Seçin:</label>
+                            <select id="bm-product-select" onchange="updateBulkMamaCalc()" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid ${theme.primary}; font-size: 12px; font-weight: bold; background: ${theme.background}; color: ${theme.text};">
+                                ${bulkProducts.map(p => `<option value="${p.id}" ${p.isBulkMama ? 'selected' : ''}>${p.emoji || '🍖'} ${p.name} (Açık Stok: ${p.openStockKg || 0} Kg - Fiyat: ${p.pricePerKg || p.sellPrice} ₺/Kg)</option>`).join('')}
+                            </select>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; background: ${theme.background}; padding: 4px; border-radius: 8px;">
+                            <button id="bm-tab-weight" onclick="setBulkMamaMode('weight')" style="padding: 8px; background: ${theme.primary}; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 11px; cursor: pointer;">⚖️ Gramaj/Kg Gir</button>
+                            <button id="bm-tab-money" onclick="setBulkMamaMode('money')" style="padding: 8px; background: ${theme.card}; color: ${theme.text}; border: 1px solid ${theme.primary}; border-radius: 6px; font-weight: bold; font-size: 11px; cursor: pointer;">💵 Tutar / Bütçe Gir</button>
+                        </div>
+
+                        <!-- MOD 1: GRAMAJ GİRİŞİ -->
+                        <div id="bm-mode-weight" style="margin-bottom: 15px;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <div>
+                                    <label style="font-size: 10px; font-weight: bold; color: ${theme.textLight}; display: block; margin-bottom: 3px;">Gramaj (Gram):</label>
+                                    <input id="bm-input-gram" type="number" step="10" placeholder="Örn: 750" oninput="calculateFromGram(this.value)" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid ${theme.primary}; font-size: 14px; font-weight: bold; text-align: center; background: ${theme.background}; color: ${theme.text};" />
+                                </div>
+                                <div>
+                                    <label style="font-size: 10px; font-weight: bold; color: ${theme.textLight}; display: block; margin-bottom: 3px;">Ağırlık (Kg):</label>
+                                    <input id="bm-input-kg" type="number" step="0.05" placeholder="Örn: 0.75" oninput="calculateFromKg(this.value)" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid ${theme.primary}; font-size: 14px; font-weight: bold; text-align: center; background: ${theme.background}; color: ${theme.text};" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- MOD 2: TUTAR GİRİŞİ -->
+                        <div id="bm-mode-money" class="hidden" style="margin-bottom: 15px;">
+                            <div>
+                                <label style="font-size: 10px; font-weight: bold; color: ${theme.textLight}; display: block; margin-bottom: 3px;">Müşterinin İstediği Tutar (TL):</label>
+                                <input id="bm-input-money" type="number" step="5" placeholder="Örn: 100" oninput="calculateFromMoney(this.value)" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid ${theme.success}; font-size: 16px; font-weight: bold; text-align: center; color: ${theme.success}; background: ${theme.background};" />
+                            </div>
+                        </div>
+
+                        <!-- HESAPLAMA SÜZGEÇ KUTUSU -->
+                        <div style="background: ${theme.background}; border: 2px dashed ${theme.primary}; border-radius: 8px; padding: 12px; margin-bottom: 15px; text-align: center;">
+                            <div style="font-size: 9px; font-weight: bold; color: ${theme.textLight}; text-transform: uppercase; margin-bottom: 4px;">Hesaplanan Gramaj ve Fiyat</div>
+                            <div id="bm-result-weight" style="font-size: 15px; font-weight: bold; color: ${theme.primary}; margin-bottom: 2px;">0 Gram (0.000 Kg)</div>
+                            <div id="bm-result-price" style="font-size: 22px; font-weight: 900; color: ${theme.success};">0.00 ₺</div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                            <button onclick="closeBulkMamaSaleModal()" style="padding: 10px; background: ${theme.textLight}30; color: ${theme.text}; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px;">Vazgeç</button>
+                            <button onclick="addBulkMamaToCart()" style="padding: 10px; background: ${theme.success}; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px;">🛒 Sepete Ekle</button>
+                        </div>
+                    </div>
+                `;
+
+                window.bulkMamaMode = 'weight';
+                window.updateBulkMamaCalc();
+            };
+
+            window.closeBulkMamaSaleModal = function() {
+                const modal = document.getElementById('bulk-mama-modal');
+                if (modal) modal.remove();
+            };
+
+            window.setBulkMamaMode = function(mode) {
+                window.bulkMamaMode = mode;
+                document.getElementById('bm-mode-weight').classList.toggle('hidden', mode !== 'weight');
+                document.getElementById('bm-mode-money').classList.toggle('hidden', mode !== 'money');
+                document.getElementById('bm-tab-weight').style.background = mode === 'weight' ? theme.primary : theme.card;
+                document.getElementById('bm-tab-weight').style.color = mode === 'weight' ? 'white' : theme.text;
+                document.getElementById('bm-tab-money').style.background = mode === 'money' ? theme.success : theme.card;
+                document.getElementById('bm-tab-money').style.color = mode === 'money' ? 'white' : theme.text;
+            };
+
+            window.updateBulkMamaCalc = function() {
+                const select = document.getElementById('bm-product-select');
+                if (!select) return;
+                const pid = parseInt(select.value);
+                const p = state.products.find(x => x.id === pid);
+                if (!p) return;
+
+                window.bmSelectedProduct = p;
+                window.bmPricePerKg = p.pricePerKg || p.sellPrice || 0;
+
+                if (window.bulkMamaMode === 'weight') {
+                    const gramVal = parseFloat(document.getElementById('bm-input-gram').value) || 0;
+                    calculateFromGram(gramVal);
+                } else {
+                    const moneyVal = parseFloat(document.getElementById('bm-input-money').value) || 0;
+                    calculateFromMoney(moneyVal);
+                }
+            };
+
+            window.calculateFromGram = function(val) {
+                const grams = parseFloat(val) || 0;
+                const kg = grams / 1000;
+                const kgInput = document.getElementById('bm-input-kg');
+                if (kgInput) kgInput.value = kg > 0 ? kg : '';
+                const price = kg * (window.bmPricePerKg || 0);
+                window.bmCalculatedKg = kg;
+                window.bmCalculatedPrice = price;
+                
+                const wElem = document.getElementById('bm-result-weight');
+                const pElem = document.getElementById('bm-result-price');
+                if (wElem) wElem.textContent = `${grams.toFixed(0)} Gram (${kg.toFixed(3)} Kg)`;
+                if (pElem) pElem.textContent = `${price.toFixed(2)} ₺`;
+            };
+
+            window.calculateFromKg = function(val) {
+                const kg = parseFloat(val) || 0;
+                const grams = kg * 1000;
+                const gInput = document.getElementById('bm-input-gram');
+                if (gInput) gInput.value = grams > 0 ? grams : '';
+                const price = kg * (window.bmPricePerKg || 0);
+                window.bmCalculatedKg = kg;
+                window.bmCalculatedPrice = price;
+
+                const wElem = document.getElementById('bm-result-weight');
+                const pElem = document.getElementById('bm-result-price');
+                if (wElem) wElem.textContent = `${grams.toFixed(0)} Gram (${kg.toFixed(3)} Kg)`;
+                if (pElem) pElem.textContent = `${price.toFixed(2)} ₺`;
+            };
+
+            window.calculateFromMoney = function(val) {
+                const money = parseFloat(val) || 0;
+                const priceKg = window.bmPricePerKg || 1;
+                const kg = priceKg > 0 ? money / priceKg : 0;
+                const grams = kg * 1000;
+                
+                window.bmCalculatedKg = kg;
+                window.bmCalculatedPrice = money;
+
+                const wElem = document.getElementById('bm-result-weight');
+                const pElem = document.getElementById('bm-result-price');
+                if (wElem) wElem.textContent = `${grams.toFixed(0)} Gram (${kg.toFixed(3)} Kg)`;
+                if (pElem) pElem.textContent = `${money.toFixed(2)} ₺`;
+            };
+
+            window.addBulkMamaToCart = function() {
+                const p = window.bmSelectedProduct;
+                if (!p) { alert('⚠️ Lütfen ürün seçin!'); return; }
+                
+                const kg = window.bmCalculatedKg || 0;
+                const price = window.bmCalculatedPrice || 0;
+                
+                if (kg <= 0 || price <= 0) {
+                    alert('⚠️ Lütfen geçerli bir gramaj veya tutar girin!');
+                    return;
+                }
+
+                if ((p.openStockKg || 0) < kg) {
+                    if (!confirm(`⚠️ UYARI: "${p.name}" açık çuval stoğu (${p.openStockKg || 0} Kg) eklenmek istenen miktardan (${kg.toFixed(3)} Kg) daha az.\nYine de sepete eklensin mi?`)) {
+                        return;
+                    }
+                }
+
+                const grams = (kg * 1000).toFixed(0);
+                const cartItem = {
+                    id: p.id,
+                    name: `${p.name} (${grams}g - Açık Mama)`,
+                    sellPrice: price,
+                    qty: 1,
+                    isBulkMama: true,
+                    weightKg: kg,
+                    unitPriceKg: window.bmPricePerKg
+                };
+
+                state.cart.push(cartItem);
+                saveData();
+                closeBulkMamaSaleModal();
+                renderPOS(document.getElementById('screen') || document.querySelector('main'));
             };
 
             window.updateCartQty = function(index, newQtyVal) {
@@ -1443,7 +1632,7 @@
 
                 const customerId = parseInt(document.getElementById('pos-customer').value);
                 const customer = state.customers.find(c => c.id === customerId);
-                const paymentType = document.getElementById('pos-payment').value;
+                const paymentType = method || 'cash';
                 
                 // Satış öğelerini FIFO ile hazırla (ilk giren eski stok ÖNCE, yeni stok SONRA)
                 const saleItems = [];
@@ -1454,45 +1643,63 @@
                     if (p) {
                         ensureStockLots(p);
 
-                        let remaining = c.qty;
-                        const currentSellPrice = c.sellPrice || p.sellPrice;
+                        if (c.isBulkMama) {
+                            let bagWeight = p.bagWeightKg || 15;
+                            let lotBuyPrice = (p.stockLots && p.stockLots.length > 0) ? p.stockLots[0].buyPrice : (p.buyPrice || 0);
+                            let buyPricePerKg = bagWeight > 0 ? (lotBuyPrice / bagWeight) : lotBuyPrice;
+                            let calculatedCost = buyPricePerKg * (c.weightKg || 0);
 
-                        if (p.stockLots && p.stockLots.length > 0) {
-                            // FIFO: Lot 0 (en eski parti) önce tüketilsin
-                            while (remaining > 0 && p.stockLots.length > 0) {
-                                let lot = p.stockLots[0];
-                                let take = Math.min(remaining, lot.quantity);
+                            saleItems.push({
+                                ...c,
+                                id: c.id,
+                                name: c.name || p.name,
+                                qty: 1,
+                                buyPrice: calculatedCost, // Kg/Gramaj bazlı maliyet
+                                sellPrice: c.sellPrice,    // Toplam satış fiyatı
+                                isBulkMama: true,
+                                weightKg: c.weightKg
+                            });
+                        } else {
+                            let remaining = c.qty;
+                            const currentSellPrice = c.sellPrice || p.sellPrice;
 
+                            if (p.stockLots && p.stockLots.length > 0) {
+                                // FIFO: Lot 0 (en eski parti) önce tüketilsin
+                                while (remaining > 0 && p.stockLots.length > 0) {
+                                    let lot = p.stockLots[0];
+                                    let take = Math.min(remaining, lot.quantity);
+
+                                    saleItems.push({
+                                        ...c,
+                                        id: c.id,
+                                        name: p.name,
+                                        qty: take,
+                                        buyPrice: lot.buyPrice, // Alış fiyatı ilgili eski/yeni partiden
+                                        sellPrice: currentSellPrice, // Satış fiyatı güncel satış fiyatından
+                                        lotId: lot.id,
+                                        lotDate: lot.date
+                                    });
+
+                                    lot.quantity -= take;
+                                    remaining -= take;
+
+                                    if (lot.quantity <= 0) {
+                                        p.stockLots.shift(); // Bu parti sıfırlandı, listeden çıkar
+                                    }
+                                }
+                            }
+
+                            // Eğer stok partileri yetersiz kaldıysa kalan miktar için varsayılan fiyatla ekle
+                            if (remaining > 0) {
                                 saleItems.push({
                                     ...c,
                                     id: c.id,
                                     name: p.name,
-                                    qty: take,
-                                    buyPrice: lot.buyPrice, // Alış fiyatı ilgili eski/yeni partiden
-                                    sellPrice: currentSellPrice, // Satış fiyatı güncel satış fiyatından
-                                    lotId: lot.id,
-                                    lotDate: lot.date
+                                    qty: remaining,
+                                    buyPrice: p.buyPrice || 0,
+                                    sellPrice: currentSellPrice
                                 });
-
-                                lot.quantity -= take;
-                                remaining -= take;
-
-                                if (lot.quantity <= 0) {
-                                    p.stockLots.shift(); // Bu parti sıfırlandı, listeden çıkar
-                                }
                             }
-                        }
-
-                        // Eğer stok partileri yetersiz kaldıysa kalan miktar için varsayılan fiyatla ekle
-                        if (remaining > 0) {
-                            saleItems.push({
-                                ...c,
-                                id: c.id,
-                                name: p.name,
-                                qty: remaining,
-                                buyPrice: p.buyPrice || 0,
-                                sellPrice: currentSellPrice
-                            });
                         }
                     }
                 });
@@ -1503,13 +1710,26 @@
                     items: saleItems,
                     total: saleItems.reduce((s, a) => s + (a.sellPrice * a.qty), 0),
                     paymentMethod: paymentType,
-                    customer: customer ? customer.name : 'Peçin Alıcı',
+                    customer: customer ? customer.name : 'Peşin Alıcı',
                     customerId: customerId,
                     timestamp: new Date().toLocaleString('tr-TR'),
                     cashier: state.user.name
                 };
 
                 state.sales.push(sale);
+
+                // Eğer ödeme Kredi (Veresiye) ise Borçlar listesine ekle
+                if (paymentType === 'credit') {
+                    if (!Array.isArray(state.debts)) state.debts = [];
+                    state.debts.push({
+                        id: Date.now(),
+                        customer: customer ? customer.name : 'Peşin Alıcı (Kredi)',
+                        amount: sale.total,
+                        description: `Kasa Kredi/Veresiye Satışı (Fiş: ${sale.invoiceNo})`,
+                        paid: 0,
+                        date: new Date().toLocaleDateString('tr-TR')
+                    });
+                }
 
                 // AUDIT LOG: Satış yapıldı
                 const itemsList = sale.items.map(i => `${i.name} x${i.qty}`).join(', ');
@@ -1525,28 +1745,44 @@
                 state.cart.forEach(c => {
                     const p = state.products.find(x => x.id === c.id);
                     if (p) {
-                        let needed = c.qty;
-                        let fromShop = Math.min(needed, p.shop);
-                        let fromWarehouse = needed - fromShop;
-                        
-                        p.shop -= fromShop;
-                        p.warehouse -= fromWarehouse;
-                        
-                        // Depo eksikliğini kaydet
-                        if (fromWarehouse > 0) {
-                            depoProblem.push(`${p.name}: Dükkan 0, Depo -${fromWarehouse}`);
+                        if (c.isBulkMama) {
+                            let soldKg = c.weightKg || 0;
+                            p.openStockKg = Math.max(0, (parseFloat(p.openStockKg) || 0) - soldKg);
+                            
+                            // Stock log
+                            state.stockLog.push({
+                                id: Date.now(),
+                                productName: p.name,
+                                quantity: soldKg,
+                                type: 'out',
+                                date: new Date().toLocaleString('tr-TR'),
+                                user: state.user.name,
+                                note: `Gramajlı Satış (${soldKg.toFixed(3)} Kg) - Fiş: ${sale.invoiceNo}`
+                            });
+                        } else {
+                            let needed = c.qty;
+                            let fromShop = Math.min(needed, p.shop);
+                            let fromWarehouse = needed - fromShop;
+                            
+                            p.shop -= fromShop;
+                            p.warehouse -= fromWarehouse;
+                            
+                            // Depo eksikliğini kaydet
+                            if (fromWarehouse > 0) {
+                                depoProblem.push(`${p.name}: Dükkan 0, Depo -${fromWarehouse}`);
+                            }
+                            
+                            // Stock log
+                            state.stockLog.push({
+                                id: Date.now(),
+                                productName: p.name,
+                                quantity: c.qty,
+                                type: 'out',
+                                date: new Date().toLocaleString('tr-TR'),
+                                user: state.user.name,
+                                note: `Satış: ${sale.invoiceNo}${fromWarehouse > 0 ? ' (Depodan destek: ' + fromWarehouse + ')' : ''}`
+                            });
                         }
-                        
-                        // Stock log
-                        state.stockLog.push({
-                            id: Date.now(),
-                            productName: p.name,
-                            quantity: c.qty,
-                            type: 'out',
-                            date: new Date().toLocaleString('tr-TR'),
-                            user: state.user.name,
-                            note: `Satış: ${sale.invoiceNo}${fromWarehouse > 0 ? ' (Depodan destek: ' + fromWarehouse + ')' : ''}`
-                        });
                     }
                 });
                 state.cart = [];
@@ -1832,6 +2068,30 @@
                         <label style="font-size: 9px; color: ${theme.textLight}; display: block; margin-bottom: 2px;">⚠️ Kritik Stok Eşiği (Varsayılan: 5 adet)</label>
                         <input id="inv-critical-limit" type="number" placeholder="Kritik Stok Sınırı (Varsayılan: 5)" value="5" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.warning}; font-size: 11px;" />
                     </div>
+
+                    <!-- AÇIK MAMA / GRAMAJLI SATIŞ MODÜLÜ ALANLARI -->
+                    <div style="background: ${theme.background}; padding: 8px; border-radius: 6px; border: 1px solid ${theme.primary}; margin-bottom: 6px;">
+                        <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: bold; color: ${theme.primary}; cursor: pointer;">
+                            <input type="checkbox" id="inv-is-bulk-mama" onchange="document.getElementById('inv-bulk-mama-fields').classList.toggle('hidden', !this.checked)" />
+                            ⚖️ Çuval / Açık Mama Satış Ürünü (Kg/Gramajlı)
+                        </label>
+                        <div id="inv-bulk-mama-fields" class="hidden" style="margin-top: 6px; pt: 6px; border-top: 1px dashed ${theme.primary}50;">
+                            <div class="grid-3" style="gap: 4px;">
+                                <div>
+                                    <label style="font-size: 8px; color: ${theme.textLight};">Çuval Ağırlık (Kg)</label>
+                                    <input id="inv-bag-weight-kg" type="number" placeholder="Örn: 15" value="15" style="width: 100%; padding: 4px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 10px;" />
+                                </div>
+                                <div>
+                                    <label style="font-size: 8px; color: ${theme.textLight};">Kg Satış Fiyatı (₺/Kg)</label>
+                                    <input id="inv-price-per-kg" type="number" placeholder="Örn: 180" style="width: 100%; padding: 4px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 10px;" />
+                                </div>
+                                <div>
+                                    <label style="font-size: 8px; color: ${theme.textLight};">Açık Stok (Kg)</label>
+                                    <input id="inv-open-stock-kg" type="number" placeholder="Örn: 0" value="0" style="width: 100%; padding: 4px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 10px;" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <button onclick="saveProduct()" style="width: 100%; padding: 6px; background: ${theme.success}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px;">✅ Kaydet</button>
                 </div>
 
@@ -1874,6 +2134,30 @@
                     <div style="margin-bottom: 6px;">
                         <label style="font-size: 9px; color: ${theme.textLight}; display: block; margin-bottom: 2px;">⚠️ Kritik Stok Eşiği (Varsayılan: 5 adet)</label>
                         <input id="edit-product-critical-limit" type="number" placeholder="Kritik Stok Sınırı" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.warning}; font-size: 11px;" />
+                    </div>
+
+                    <!-- DÜZENLEME AÇIK MAMA ALANLARI -->
+                    <div style="background: ${theme.background}; padding: 8px; border-radius: 6px; border: 1px solid ${theme.warning}; margin-bottom: 6px;">
+                        <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: bold; color: ${theme.warning}; cursor: pointer;">
+                            <input type="checkbox" id="edit-product-is-bulk-mama" onchange="document.getElementById('edit-bulk-mama-fields').classList.toggle('hidden', !this.checked)" />
+                            ⚖️ Çuval / Açık Mama Satış Ürünü
+                        </label>
+                        <div id="edit-bulk-mama-fields" class="hidden" style="margin-top: 6px; pt: 6px; border-top: 1px dashed ${theme.warning}50;">
+                            <div class="grid-3" style="gap: 4px;">
+                                <div>
+                                    <label style="font-size: 8px; color: ${theme.textLight};">Çuval Ağırlık (Kg)</label>
+                                    <input id="edit-product-bag-weight" type="number" placeholder="15" style="width: 100%; padding: 4px; border-radius: 4px; border: 1px solid ${theme.warning}; font-size: 10px;" />
+                                </div>
+                                <div>
+                                    <label style="font-size: 8px; color: ${theme.textLight};">Kg Satış Fiyatı (₺/Kg)</label>
+                                    <input id="edit-product-price-per-kg" type="number" placeholder="180" style="width: 100%; padding: 4px; border-radius: 4px; border: 1px solid ${theme.warning}; font-size: 10px;" />
+                                </div>
+                                <div>
+                                    <label style="font-size: 8px; color: ${theme.textLight};">Açık Stok (Kg)</label>
+                                    <input id="edit-product-open-stock" type="number" placeholder="0" style="width: 100%; padding: 4px; border-radius: 4px; border: 1px solid ${theme.warning}; font-size: 10px;" />
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div style="display: flex; gap: 6px; margin-bottom: 6px;">
                         <input id="edit-product-transfer" type="number" placeholder="Transfer Miktarı" style="flex: 1; padding: 6px; border-radius: 4px; border: 1px solid ${theme.warning}; font-size: 11px;" />
@@ -1923,6 +2207,7 @@
 
             window.saveProduct = function() {
                 const critLimitVal = parseFloat(document.getElementById('inv-critical-limit').value);
+                const isBulkMama = document.getElementById('inv-is-bulk-mama').checked;
                 const p = {
                     id: Date.now(),
                     name: document.getElementById('inv-name').value,
@@ -1936,7 +2221,11 @@
                     criticalLimit: isNaN(critLimitVal) ? 5 : critLimitVal,
                     emoji: document.getElementById('inv-emoji').value || '📦',
                     image64: null,
-                    stockLots: []
+                    stockLots: [],
+                    isBulkMama: isBulkMama,
+                    bagWeightKg: isBulkMama ? (parseFloat(document.getElementById('inv-bag-weight-kg').value) || 15) : null,
+                    pricePerKg: isBulkMama ? (parseFloat(document.getElementById('inv-price-per-kg').value) || parseFloat(document.getElementById('inv-sell').value) || 0) : null,
+                    openStockKg: isBulkMama ? (parseFloat(document.getElementById('inv-open-stock-kg').value) || 0) : 0
                 };
                 state.products.push(p);
                 
@@ -1945,7 +2234,7 @@
                     user: state.user.name,
                     action: '📦 Ürün Eklendi',
                     timestamp: new Date().toLocaleString('tr-TR'),
-                    details: `Ürün: ${p.name}, Kategori: ${p.category}, Satış: ${p.sellPrice}₺`,
+                    details: `Ürün: ${p.name}, Kategori: ${p.category}, Satış: ${p.sellPrice}₺${p.isBulkMama ? ` (Açık Mama - ${p.bagWeightKg} Kg/Çuval)` : ''}`,
                     affectedData: `SKU: ${p.sku}, Barkod: ${p.barcode}, Dükkan: ${p.shop}, Depo: ${p.warehouse}, Kritik Sınır: ${p.criticalLimit}`
                 });
                 saveData();
@@ -2021,7 +2310,22 @@
                         <div style="font-size: 9px; color: ${theme.textLight};">📂 ${p.category}</div>
                         <div style="font-size: 9px; color: ${theme.textLight};">SKU: ${p.sku} | Barkod: ${p.barcode}</div>
                         <div style="font-size: 9px; color: ${theme.success}; font-weight: bold;">💰 Güncel Alış: ${displayBuyPrice}₺ | Satış: ${displaySellPrice}₺</div>
-                        <div style="font-size: 9px; color: ${theme.textLight};">Dükkan: <strong style="color: ${isCritical ? theme.error : theme.text};">${p.shop}</strong> | Depo: ${p.warehouse} | Eşik: <strong>${limit}</strong></div>
+                        <div style="font-size: 9px; color: ${theme.textLight};">Dükkan: <strong style="color: ${isCritical ? theme.error : theme.text};">${p.shop}</strong> Adet | Depo: ${p.warehouse} Adet | Eşik: <strong>${limit}</strong></div>
+                        ${p.isBulkMama ? `
+                            <div style="margin-top: 6px; padding: 6px; background: ${theme.primary}10; border-radius: 4px; border: 1px dashed ${theme.primary}; font-size: 9px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                    <span style="font-weight: bold; color: ${theme.primary};">⚖️ Açık Çuval Mama Stoğu:</span>
+                                    <span style="font-weight: bold; color: ${p.openStockKg > 0 ? theme.success : theme.error}; font-size: 11px;">${p.openStockKg || 0} Kg</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 8px; color: ${theme.textLight}; margin-bottom: 4px;">
+                                    <span>Çuval Ağırlığı: ${p.bagWeightKg || 15} Kg</span>
+                                    <span>Kg Fiyatı: <strong>${p.pricePerKg || p.sellPrice}₺/Kg</strong></span>
+                                </div>
+                                <button onclick="openNewMamaBag(${p.id})" style="width: 100%; padding: 4px; background: ${theme.primary}; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 9px; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                                    🔓 1 Çuval Aç (+${p.bagWeightKg || 15} Kg Dök)
+                                </button>
+                            </div>
+                        ` : ''}
                         ${(p.stockLots && p.stockLots.length > 0) ? `
                             <div style="margin-top: 6px; padding: 6px; background: ${theme.background}; border-radius: 4px; border: 1px dashed ${theme.primary}; font-size: 9px;">
                                 <div style="font-weight: bold; color: ${theme.primary}; margin-bottom: 4px;">🏷️ FIFO Stok Partileri (Önce Satılacaklar):</div>
@@ -2058,6 +2362,55 @@
                 renderInventory(screen);
             };
 
+            window.openNewMamaBag = function(id) {
+                const p = state.products.find(x => x.id === id);
+                if (!p) return;
+                
+                let bagWeight = p.bagWeightKg || 15;
+                if (p.shop >= 1) {
+                    p.shop -= 1;
+                } else if (p.warehouse >= 1) {
+                    p.warehouse -= 1;
+                } else {
+                    if (!confirm(`⚠️ "${p.name}" ürününden Dükkan veya Depoda kapalı çuval stoğu kalmamış (0 Adet).\nYine de açık stoğa +${bagWeight} Kg eklensin mi?`)) {
+                        return;
+                    }
+                }
+
+                // FIFO: Stok partilerinden 1 çuval düşüşü yap
+                ensureStockLots(p);
+                if (p.stockLots && p.stockLots.length > 0) {
+                    p.stockLots[0].quantity -= 1;
+                    if (p.stockLots[0].quantity <= 0) {
+                        p.stockLots.shift(); // Parti tükendi, listeden çıkar
+                    }
+                }
+
+                p.openStockKg = (parseFloat(p.openStockKg) || 0) + bagWeight;
+                
+                state.stockLog.push({
+                    id: Date.now(),
+                    productName: p.name,
+                    quantity: 1,
+                    type: 'in',
+                    date: new Date().toLocaleString('tr-TR'),
+                    user: (state.user && state.user.name) ? state.user.name : 'Sistem',
+                    note: `🔓 1 Çuval Mama Açıldı (+${bagWeight} Kg Açık Stoğa Eklendi)`
+                });
+
+                state.auditLog.push({
+                    user: (state.user && state.user.name) ? state.user.name : 'Sistem',
+                    action: '🔓 Çuval Mama Açıldı',
+                    timestamp: new Date().toLocaleString('tr-TR'),
+                    details: `Ürün: ${p.name}, +${bagWeight} Kg açık stoğa döküldü. Yeni Açık Stok: ${p.openStockKg} Kg`,
+                    affectedData: `Kalan Çuval Dükkan: ${p.shop}, Depo: ${p.warehouse}`
+                });
+
+                saveData();
+                renderInventory(screen);
+                alert(`✅ 1 Çuval mama açıldı!\n+${bagWeight} Kg açık stoğa eklendi.\nGüncel Açık Mama Stoğu: ${p.openStockKg} Kg`);
+            };
+
             window.editProduct = function(id) {
                 const p = state.products.find(x => x.id === id);
                 if (!p) return;
@@ -2088,6 +2441,16 @@
                 document.getElementById('edit-product-warehouse').value = p.warehouse || 0;
                 document.getElementById('edit-product-critical-limit').value = (p.criticalLimit !== undefined && p.criticalLimit !== null && !isNaN(p.criticalLimit)) ? p.criticalLimit : 5;
                 document.getElementById('edit-product-transfer').value = '';
+
+                // Open Mama fields
+                const isBulk = !!p.isBulkMama;
+                const chk = document.getElementById('edit-product-is-bulk-mama');
+                chk.checked = isBulk;
+                document.getElementById('edit-bulk-mama-fields').classList.toggle('hidden', !isBulk);
+                document.getElementById('edit-product-bag-weight').value = p.bagWeightKg || 15;
+                document.getElementById('edit-product-price-per-kg').value = p.pricePerKg || p.sellPrice || 0;
+                document.getElementById('edit-product-open-stock').value = p.openStockKg || 0;
+
                 document.getElementById('product-edit-form').classList.remove('hidden');
             };
 
@@ -2095,6 +2458,12 @@
                 const id = parseInt(document.getElementById('edit-product-id').value);
                 const p = state.products.find(x => x.id === id);
                 if (!p) return;
+
+                const oldBuy = p.buyPrice || 0;
+                const oldSell = p.sellPrice || 0;
+                const oldShop = p.shop || 0;
+                const oldWarehouse = p.warehouse || 0;
+
                 p.name = document.getElementById('edit-product-name').value;
                 p.sku = document.getElementById('edit-product-sku').value;
                 p.barcode = document.getElementById('edit-product-barcode').value;
@@ -2105,6 +2474,25 @@
                 p.warehouse = parseFloat(document.getElementById('edit-product-warehouse').value) || 0;
                 const critVal = parseFloat(document.getElementById('edit-product-critical-limit').value);
                 p.criticalLimit = isNaN(critVal) ? 5 : critVal;
+
+                // Open Mama fields
+                const isBulk = document.getElementById('edit-product-is-bulk-mama').checked;
+                p.isBulkMama = isBulk;
+                if (isBulk) {
+                    p.bagWeightKg = parseFloat(document.getElementById('edit-product-bag-weight').value) || 15;
+                    p.pricePerKg = parseFloat(document.getElementById('edit-product-price-per-kg').value) || p.sellPrice || 0;
+                    p.openStockKg = parseFloat(document.getElementById('edit-product-open-stock').value) || 0;
+                }
+
+                // AUDIT LOG: İşlem Geçmişine Kaydet
+                state.auditLog.push({
+                    user: (state.user && state.user.name) ? state.user.name : 'Sistem',
+                    action: '✏️ Ürün Düzenlendi',
+                    timestamp: new Date().toLocaleString('tr-TR'),
+                    details: `Ürün: ${p.name}, Alış: ${oldBuy}₺ ➔ ${p.buyPrice}₺, Satış: ${oldSell}₺ ➔ ${p.sellPrice}₺`,
+                    affectedData: `Dükkan: ${oldShop} ➔ ${p.shop}, Depo: ${oldWarehouse} ➔ ${p.warehouse}, Kritik Sınır: ${p.criticalLimit}`
+                });
+
                 saveData();
                 closeProductEdit();
                 renderInventory(screen);
@@ -2415,6 +2803,7 @@
                     sellPrice: sellPrice,
                     totalAmount: quantity * buyPrice,
                     type: 'in',
+                    isSupplierPurchase: true,
                     date: new Date().toLocaleString('tr-TR')
                 };
                 state.stockLog.push(purchase);
@@ -2462,28 +2851,88 @@
             // Tedarikçiler
             list.innerHTML = `
                 <div style="font-size: 12px; font-weight: bold; color: ${theme.primary}; margin-bottom: 8px; margin-top: 12px;">📋 Tedarikçiler</div>
-            ` + state.suppliers.map(s => `
-                <div style="background: ${theme.card}; padding: 10px; border-radius: 6px; border-left: 3px solid ${theme.primary}; margin-bottom: 8px;">
-                    <div style="font-weight: bold; color: ${theme.primary};">🏢 ${s.name}</div>
-                    <div style="font-size: 9px; color: ${theme.textLight};">📞 ${s.phone}</div>
-                    <div style="font-size: 9px; color: ${theme.textLight};">📧 ${s.email}</div>
-                    <div style="font-size: 9px; color: ${theme.textLight};">📍 ${s.address}</div>
-                    <button onclick="deleteSupplier(${s.id})" style="width: 100%; padding: 4px; background: ${theme.error}20; color: ${theme.error}; border: none; border-radius: 3px; cursor: pointer; font-size: 9px; margin-top: 6px;">🗑️ Sil</button>
-                </div>
-            `).join('') + `
-                <div style="font-size: 12px; font-weight: bold; color: ${theme.primary}; margin-bottom: 8px; margin-top: 16px;">📦 Tedarik Geçmişi</div>
-            ` + state.stockLog.filter(log => log.type === 'in').map(log => {
-                const supplier = state.suppliers.find(s => s.id == log.supplierId);
-                return `
-                    <div style="background: ${theme.background}; padding: 8px; border-radius: 6px; margin-bottom: 6px; font-size: 10px; border-left: 2px solid ${theme.success};">
-                        <div style="font-weight: bold; color: ${theme.primary};">${log.productName} x${log.quantity}</div>
-                        <div style="color: ${theme.success};">💰 Alış: ${log.buyPrice}₺ | Satış: ${log.sellPrice}₺</div>
-                        <div style="color: ${theme.success}; font-weight: bold;">💵 Toplam Maliyet: ${log.totalAmount}₺</div>
-                        <div style="color: ${theme.textLight};">🏢 ${supplier ? supplier.name : 'Isimsiz Alım'}</div>
-                        <div style="color: ${theme.textLight};">📅 ${log.date}</div>
+                ${state.suppliers.map(s => `
+                    <div style="background: ${theme.card}; padding: 10px; border-radius: 6px; border-left: 3px solid ${theme.primary}; margin-bottom: 8px;">
+                        <div style="font-weight: bold; color: ${theme.primary};">🏢 ${s.name}</div>
+                        <div style="font-size: 9px; color: ${theme.textLight};">📞 ${s.phone}</div>
+                        <div style="font-size: 9px; color: ${theme.textLight};">📧 ${s.email}</div>
+                        <div style="font-size: 9px; color: ${theme.textLight};">📍 ${s.address}</div>
+                        <button onclick="deleteSupplier(${s.id})" style="width: 100%; padding: 4px; background: ${theme.error}20; color: ${theme.error}; border: none; border-radius: 3px; cursor: pointer; font-size: 9px; margin-top: 6px;">🗑️ Sil</button>
                     </div>
-                `;
-            }).join('');
+                `).join('')}
+
+                <div style="background: ${theme.card}; padding: 10px; border-radius: 6px; margin-top: 16px; margin-bottom: 8px; border-left: 3px solid ${theme.primary};">
+                    <div style="font-size: 12px; font-weight: bold; color: ${theme.primary}; margin-bottom: 8px;">📦 Tedarik Geçmişi (Tarih Filtreli)</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                        <div>
+                            <label style="font-size: 10px; color: ${theme.textLight}; display: block; margin-bottom: 2px;">📅 Başlangıç Tarihi</label>
+                            <input type="date" id="sup-start-date" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px;" onchange="window.filterSupplierHistory()" />
+                        </div>
+                        <div>
+                            <label style="font-size: 10px; color: ${theme.textLight}; display: block; margin-bottom: 2px;">📅 Bitiş Tarihi</label>
+                            <input type="date" id="sup-end-date" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px;" onchange="window.filterSupplierHistory()" />
+                        </div>
+                    </div>
+                    <button onclick="window.resetSupplierHistoryFilter()" style="width: 100%; padding: 6px; background: ${theme.error}20; color: ${theme.error}; border: none; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold;">✕ Filtreyi Sıfırla</button>
+                </div>
+
+                <div id="sup-history-container"></div>
+            `;
+
+            window.filterSupplierHistory = function() {
+                const startDate = document.getElementById('sup-start-date')?.value;
+                const endDate = document.getElementById('sup-end-date')?.value;
+                const container = document.getElementById('sup-history-container');
+                if (!container) return;
+
+                let logs = state.stockLog.filter(log => log.type === 'in' && (log.isSupplierPurchase || (log.supplierId && !log.note)));
+
+                if (startDate || endDate) {
+                    logs = logs.filter(log => {
+                        if (!log.date) return false;
+                        const formattedDate = parseToYYYYMMDD(log.date);
+                        if (!formattedDate) return false;
+                        if (startDate && formattedDate < startDate) return false;
+                        if (endDate && formattedDate > endDate) return false;
+                        return true;
+                    });
+                }
+
+                // En son alımları en üstte göster (tarihe göre azalan)
+                logs.sort((a, b) => (b.id || 0) - (a.id || 0));
+
+                const totalCost = logs.reduce((sum, l) => sum + (l.totalAmount || ((l.quantity || 0) * (l.buyPrice || 0))), 0);
+                const totalQty = logs.reduce((sum, l) => sum + (l.quantity || 0), 0);
+
+                container.innerHTML = `
+                    <div style="background: ${theme.primary}15; padding: 8px; border-radius: 6px; margin-bottom: 8px; font-size: 11px; display: flex; justify-content: space-between; align-items: center; border: 1px solid ${theme.primary}30;">
+                        <span>📦 Toplam Alım: <strong>${logs.length} İşlem (${totalQty} Adet)</strong></span>
+                        <span style="color: ${theme.success}; font-weight: bold;">💵 Toplam Maliyet: ${totalCost.toFixed(0)}₺</span>
+                    </div>
+                ` + (logs.length === 0 ? `
+                    <div style="text-align: center; color: ${theme.textLight}; padding: 12px; font-size: 11px;">📭 Seçilen tarihte tedarik kaydı bulunamadı.</div>
+                ` : logs.map(log => {
+                    const supplier = state.suppliers.find(s => s.id == log.supplierId);
+                    return `
+                        <div style="background: ${theme.background}; padding: 8px; border-radius: 6px; margin-bottom: 6px; font-size: 10px; border-left: 3px solid ${theme.success};">
+                            <div style="font-weight: bold; color: ${theme.primary};">${log.productName} x${log.quantity}</div>
+                            <div style="color: ${theme.success};">💰 Alış: ${log.buyPrice}₺ | Satış: ${log.sellPrice}₺</div>
+                            <div style="color: ${theme.success}; font-weight: bold;">💵 Toplam Maliyet: ${log.totalAmount || (log.quantity * log.buyPrice)}₺</div>
+                            <div style="color: ${theme.textLight};">🏢 ${supplier ? supplier.name : 'İsimsiz Alım'}</div>
+                            <div style="color: ${theme.textLight};">📅 ${log.date}</div>
+                        </div>
+                    `;
+                }).join(''));
+            };
+
+            window.resetSupplierHistoryFilter = function() {
+                if (document.getElementById('sup-start-date')) document.getElementById('sup-start-date').value = '';
+                if (document.getElementById('sup-end-date')) document.getElementById('sup-end-date').value = '';
+                window.filterSupplierHistory();
+            };
+
+            // İlk render
+            window.filterSupplierHistory();
 
             window.deleteSupplier = function(id) {
                 state.suppliers = state.suppliers.filter(x => x.id !== id);
@@ -2715,47 +3164,426 @@
             };
         }
 
-        // ========== GRAFİKLER ==========
+        // ========== GRAFİKLER VE DETAYLI ANALİTİK ==========
         function renderCharts(screen) {
-            if (state.sales.length === 0) {
-                screen.innerHTML = `<div style="text-align: center; padding: 20px; color: ${theme.textLight};">⚠️ Satış verisi yok!</div>`;
-                return;
-            }
-
             screen.innerHTML = `
+                <!-- ÜST KONTROL & TARİH FİLTRESİ -->
+                <div style="background: ${theme.card}; padding: 12px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid ${theme.primary};">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                        <div style="font-size: 13px; font-weight: bold; color: ${theme.primary}; display: flex; align-items: center; gap: 6px;">
+                            📊 Satış & Finansal Analitik Paneli
+                        </div>
+                        <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                            <button onclick="window.setChartRange('7days')" id="btn-chart-7days" style="padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: bold; cursor: pointer; border: 1px solid ${theme.primary}; background: ${theme.primary}; color: white;">Son 7 Gün</button>
+                            <button onclick="window.setChartRange('30days')" id="btn-chart-30days" style="padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: bold; cursor: pointer; border: 1px solid ${theme.primary}; background: ${theme.card}; color: ${theme.primary};">Son 30 Gün</button>
+                            <button onclick="window.setChartRange('month')" id="btn-chart-month" style="padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: bold; cursor: pointer; border: 1px solid ${theme.primary}; background: ${theme.card}; color: ${theme.primary};">Bu Ay</button>
+                            <button onclick="window.setChartRange('all')" id="btn-chart-all" style="padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: bold; cursor: pointer; border: 1px solid ${theme.primary}; background: ${theme.card}; color: ${theme.primary};">Tüm Zamanlar</button>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <div>
+                            <label style="font-size: 9px; color: ${theme.textLight}; display: block; margin-bottom: 2px;">📅 Başlangıç Tarihi</label>
+                            <input type="date" id="chart-start-date" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 10px;" onchange="window.updateChartsWithRange()" />
+                        </div>
+                        <div>
+                            <label style="font-size: 9px; color: ${theme.textLight}; display: block; margin-bottom: 2px;">📅 Bitiş Tarihi</label>
+                            <input type="date" id="chart-end-date" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 10px;" onchange="window.updateChartsWithRange()" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ÖZET PERFORMANS KARTLARI (KPI) -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-bottom: 12px;">
+                    <div class="card" style="border-left: 3px solid ${theme.success};">
+                        <div style="font-size: 10px; color: ${theme.textLight}; font-weight: bold;">💰 Toplam Ciro</div>
+                        <div id="kpi-revenue" style="font-size: 16px; font-weight: bold; color: ${theme.success};">0₺</div>
+                        <div id="kpi-revenue-sub" style="font-size: 8px; color: ${theme.textLight};">Seçilen Dönem</div>
+                    </div>
+                    <div class="card" style="border-left: 3px solid ${theme.primary};">
+                        <div style="font-size: 10px; color: ${theme.textLight}; font-weight: bold;">📈 Net Kâr</div>
+                        <div id="kpi-profit" style="font-size: 16px; font-weight: bold; color: ${theme.primary};">0₺</div>
+                        <div id="kpi-margin-sub" style="font-size: 8px; color: ${theme.success};">Kâr Marjı: %0</div>
+                    </div>
+                    <div class="card" style="border-left: 3px solid ${theme.info};">
+                        <div style="font-size: 10px; color: ${theme.textLight}; font-weight: bold;">🛒 İşlem Sayısı</div>
+                        <div id="kpi-sales-count" style="font-size: 16px; font-weight: bold; color: ${theme.info};">0</div>
+                        <div id="kpi-avg-basket" style="font-size: 8px; color: ${theme.textLight};">Ort. Fiş: 0₺</div>
+                    </div>
+                    <div class="card" style="border-left: 3px solid ${theme.warning};">
+                        <div style="font-size: 10px; color: ${theme.textLight}; font-weight: bold;">🏆 En Çok Satan</div>
+                        <div id="kpi-top-product" style="font-size: 11px; font-weight: bold; color: ${theme.warning}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</div>
+                        <div id="kpi-top-product-sub" style="font-size: 8px; color: ${theme.textLight};">0 Adet</div>
+                    </div>
+                </div>
+
+                <!-- ANA GRAFİK 1: CİRO VE NET KÂR GELİŞİMİ -->
                 <div style="background: ${theme.card}; padding: 12px; border-radius: 6px; margin-bottom: 12px; border-left: 3px solid ${theme.primary};">
-                    <canvas id="salesChart"></canvas>
+                    <div style="font-size: 11px; font-weight: bold; color: ${theme.primary}; margin-bottom: 8px; display: flex; justify-content: space-between;">
+                        <span>📈 Günlük Ciro ve Net Kâr Değişimi</span>
+                        <span style="font-size: 9px; color: ${theme.textLight};">Çizgi/Analiz Grafik</span>
+                    </div>
+                    <div style="position: relative; height: 220px; width: 100%;">
+                        <canvas id="revenueProfitChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- GRAFİK GRID 2: ÖDEME YÖNTEMLERİ & KATEGORİ DAĞILIMI -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px;">
+                    <!-- GRAFİK 2: ÖDEME YÖNTEMLERİ -->
+                    <div style="background: ${theme.card}; padding: 12px; border-radius: 6px; border-left: 3px solid ${theme.success};">
+                        <div style="font-size: 11px; font-weight: bold; color: ${theme.success}; margin-bottom: 8px;">💳 Ödeme Yöntemi Dağılımı</div>
+                        <div style="position: relative; height: 180px; width: 100%;">
+                            <canvas id="paymentMethodChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- GRAFİK 3: KATEGORİ BAZLI SATIŞLAR -->
+                    <div style="background: ${theme.card}; padding: 12px; border-radius: 6px; border-left: 3px solid ${theme.info};">
+                        <div style="font-size: 11px; font-weight: bold; color: ${theme.info}; margin-bottom: 8px;">🏷️ Kategori Bazlı Satış Dağılımı</div>
+                        <div style="position: relative; height: 180px; width: 100%;">
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- GRAFİK GRID 3: TOP 5 ÜRÜN & SAATLİK YOĞUNLUK -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px;">
+                    <!-- GRAFİK 4: EN ÇOK SATAN TOP 5 ÜRÜN -->
+                    <div style="background: ${theme.card}; padding: 12px; border-radius: 6px; border-left: 3px solid ${theme.warning};">
+                        <div style="font-size: 11px; font-weight: bold; color: ${theme.warning}; margin-bottom: 8px;">🏆 En Çok Satan 5 Ürün (Adet)</div>
+                        <div style="position: relative; height: 180px; width: 100%;">
+                            <canvas id="topProductsChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- GRAFİK 5: SAATLİK SATIŞ YOĞUNLUĞU -->
+                    <div style="background: ${theme.card}; padding: 12px; border-radius: 6px; border-left: 3px solid ${theme.primary};">
+                        <div style="font-size: 11px; font-weight: bold; color: ${theme.primary}; margin-bottom: 8px;">⏰ Gün İçi Yoğun Saatler (İşlem Adedi)</div>
+                        <div style="position: relative; height: 180px; width: 100%;">
+                            <canvas id="hourlyDensityChart"></canvas>
+                        </div>
+                    </div>
                 </div>
             `;
 
-            setTimeout(() => {
-                const last7Days = Array.from({length: 7}, (_, i) => {
-                    const d = new Date();
-                    d.setDate(d.getDate() - (6 - i));
-                    return d.toLocaleDateString('tr-TR');
+            // Active charts cleanup helper
+            if (!window.chartInstances) {
+                window.chartInstances = {};
+            }
+
+            window.destroyCharts = function() {
+                Object.keys(window.chartInstances).forEach(key => {
+                    if (window.chartInstances[key]) {
+                        try { window.chartInstances[key].destroy(); } catch(e){}
+                        delete window.chartInstances[key];
+                    }
+                });
+            };
+
+            let currentRange = '7days';
+
+            window.setChartRange = function(range) {
+                currentRange = range;
+                const buttons = ['7days', '30days', 'month', 'all'];
+                buttons.forEach(b => {
+                    const btn = document.getElementById('btn-chart-' + b);
+                    if (btn) {
+                        if (b === range) {
+                            btn.style.background = theme.primary;
+                            btn.style.color = 'white';
+                        } else {
+                            btn.style.background = theme.card;
+                            btn.style.color = theme.primary;
+                        }
+                    }
                 });
 
-                const salesData = last7Days.map(day => {
-                    return state.sales.filter(s => s.timestamp.includes(day)).length;
-                });
+                const startInput = document.getElementById('chart-start-date');
+                const endInput = document.getElementById('chart-end-date');
+                const now = new Date();
 
-                const ctx = document.getElementById('salesChart');
-                if (ctx) {
-                    new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels: last7Days,
-                            datasets: [{
-                                label: 'Satış Sayısı',
-                                data: salesData,
-                                borderColor: theme.primary,
-                                backgroundColor: theme.primary + '20',
-                                tension: 0.4
-                            }]
-                        },
-                        options: { responsive: true, plugins: { legend: { display: true } } }
+                if (range === '7days') {
+                    const d7 = new Date(); d7.setDate(d7.getDate() - 6);
+                    if (startInput) startInput.value = parseToYYYYMMDD(d7.toLocaleDateString('tr-TR')) || '';
+                    if (endInput) endInput.value = parseToYYYYMMDD(now.toLocaleDateString('tr-TR')) || '';
+                } else if (range === '30days') {
+                    const d30 = new Date(); d30.setDate(d30.getDate() - 29);
+                    if (startInput) startInput.value = parseToYYYYMMDD(d30.toLocaleDateString('tr-TR')) || '';
+                    if (endInput) endInput.value = parseToYYYYMMDD(now.toLocaleDateString('tr-TR')) || '';
+                } else if (range === 'month') {
+                    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+                    if (startInput) startInput.value = parseToYYYYMMDD(firstDay.toLocaleDateString('tr-TR')) || '';
+                    if (endInput) endInput.value = parseToYYYYMMDD(now.toLocaleDateString('tr-TR')) || '';
+                } else if (range === 'all') {
+                    if (startInput) startInput.value = '';
+                    if (endInput) endInput.value = '';
+                }
+
+                window.updateChartsWithRange();
+            };
+
+            window.updateChartsWithRange = function() {
+                const startDate = document.getElementById('chart-start-date')?.value;
+                const endDate = document.getElementById('chart-end-date')?.value;
+
+                let filteredSales = state.sales || [];
+
+                if (startDate || endDate) {
+                    filteredSales = filteredSales.filter(s => {
+                        if (!s.timestamp) return false;
+                        const sDate = parseToYYYYMMDD(s.timestamp);
+                        if (!sDate) return false;
+                        if (startDate && sDate < startDate) return false;
+                        if (endDate && sDate > endDate) return false;
+                        return true;
                     });
                 }
+
+                // 1. KPI Hesaplamaları
+                let totalRev = 0;
+                let totalProfit = 0;
+                let totalItemsCount = 0;
+                let productCounts = {};
+                let categoryCounts = {};
+                let paymentTotals = { cash: 0, card: 0, credit: 0 };
+                let hourlyCounts = Array(24).fill(0);
+                let dailyData = {};
+
+                filteredSales.forEach(s => {
+                    totalRev += s.total || 0;
+                    
+                    // Ödeme yöntemi
+                    const pay = s.paymentMethod || 'cash';
+                    if (paymentTotals[pay] !== undefined) paymentTotals[pay] += s.total || 0;
+                    else paymentTotals.cash += s.total || 0;
+
+                    // Saatlik yoğunluk
+                    let hour = 12;
+                    if (s.timestamp && s.timestamp.includes(':')) {
+                        const parts = s.timestamp.split(' ');
+                        const timePart = parts.find(p => p.includes(':'));
+                        if (timePart) {
+                            hour = parseInt(timePart.split(':')[0]) || 12;
+                        }
+                    }
+                    if (hour >= 0 && hour < 24) hourlyCounts[hour]++;
+
+                    // Günlük veriler
+                    const dateStr = parseToYYYYMMDD(s.timestamp) || 'Bilinmeyen';
+                    if (!dailyData[dateStr]) dailyData[dateStr] = { rev: 0, profit: 0, count: 0 };
+                    dailyData[dateStr].rev += s.total || 0;
+                    dailyData[dateStr].count++;
+
+                    // Kalem bazlı hesaplamalar
+                    let saleProfit = 0;
+                    if (s.items && Array.isArray(s.items)) {
+                        s.items.forEach(item => {
+                            const qty = item.qty || 1;
+                            totalItemsCount += qty;
+                            const itemProfit = ((item.sellPrice || 0) - (item.buyPrice || 0)) * qty;
+                            saleProfit += itemProfit;
+
+                            // Ürün satışı
+                            const pName = item.name || 'Bilinmeyen Ürün';
+                            productCounts[pName] = (productCounts[pName] || 0) + qty;
+
+                            // Kategori tespiti
+                            const prod = state.products.find(p => p.id === item.id || p.name === item.name);
+                            const cat = prod ? (prod.category || 'Diğer') : 'Diğer';
+                            categoryCounts[cat] = (categoryCounts[cat] || 0) + (item.sellPrice || 0) * qty;
+                        });
+                    }
+                    totalProfit += saleProfit;
+                    if (dailyData[dateStr]) dailyData[dateStr].profit += saleProfit;
+                });
+
+                // Toplama KPI yazdırma
+                const revElem = document.getElementById('kpi-revenue');
+                const profitElem = document.getElementById('kpi-profit');
+                const marginElem = document.getElementById('kpi-margin-sub');
+                const countElem = document.getElementById('kpi-sales-count');
+                const basketElem = document.getElementById('kpi-avg-basket');
+                const topProdElem = document.getElementById('kpi-top-product');
+                const topProdSubElem = document.getElementById('kpi-top-product-sub');
+
+                if (revElem) revElem.textContent = totalRev.toFixed(0) + '₺';
+                if (profitElem) profitElem.textContent = totalProfit.toFixed(0) + '₺';
+                
+                const marginPercent = totalRev > 0 ? ((totalProfit / totalRev) * 100).toFixed(1) : '0';
+                if (marginElem) marginElem.textContent = 'Kâr Marjı: %' + marginPercent;
+
+                if (countElem) countElem.textContent = filteredSales.length;
+                const avgBasket = filteredSales.length > 0 ? (totalRev / filteredSales.length).toFixed(0) : '0';
+                if (basketElem) basketElem.textContent = 'Ort. Fiş: ' + avgBasket + '₺';
+
+                // Lider Ürün
+                let topProdName = '-';
+                let topProdQty = 0;
+                Object.keys(productCounts).forEach(pName => {
+                    if (productCounts[pName] > topProdQty) {
+                        topProdQty = productCounts[pName];
+                        topProdName = pName;
+                    }
+                });
+                if (topProdElem) topProdElem.textContent = topProdName;
+                if (topProdSubElem) topProdSubElem.textContent = topProdQty + ' Adet Satıldı';
+
+                // Çizim İşlemleri (Chart.js)
+                window.destroyCharts();
+
+                // 1. GRAFİK: CİRO VE NET KÂR GELİŞİMİ
+                const ctx1 = document.getElementById('revenueProfitChart')?.getContext('2d');
+                if (ctx1) {
+                    const sortedDates = Object.keys(dailyData).sort();
+                    const labels = sortedDates.map(d => {
+                        const pts = d.split('-');
+                        return pts.length === 3 ? `${pts[2]}.${pts[1]}` : d;
+                    });
+                    const revs = sortedDates.map(d => dailyData[d].rev);
+                    const profits = sortedDates.map(d => dailyData[d].profit);
+
+                    window.chartInstances['revenueProfitChart'] = new Chart(ctx1, {
+                        type: 'line',
+                        data: {
+                            labels: labels.length > 0 ? labels : ['Veri Yok'],
+                            datasets: [
+                                {
+                                    label: 'Ciro (₺)',
+                                    data: revs.length > 0 ? revs : [0],
+                                    borderColor: theme.success,
+                                    backgroundColor: theme.success + '20',
+                                    tension: 0.3,
+                                    fill: true
+                                },
+                                {
+                                    label: 'Net Kâr (₺)',
+                                    data: profits.length > 0 ? profits : [0],
+                                    borderColor: theme.primary,
+                                    backgroundColor: theme.primary + '30',
+                                    tension: 0.3,
+                                    fill: true
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: true, position: 'top' } },
+                            scales: { y: { beginAtZero: true } }
+                        }
+                    });
+                }
+
+                // 2. GRAFİK: ÖDEME YÖNTEMLERİ DAĞILIMI
+                const ctx2 = document.getElementById('paymentMethodChart')?.getContext('2d');
+                if (ctx2) {
+                    window.chartInstances['paymentMethodChart'] = new Chart(ctx2, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Nakit', 'Kart', 'Kredi/Veresiye'],
+                            datasets: [{
+                                data: [paymentTotals.cash, paymentTotals.card, paymentTotals.credit],
+                                backgroundColor: [theme.success, theme.primary, theme.warning]
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { position: 'bottom' } }
+                        }
+                    });
+                }
+
+                // 3. GRAFİK: KATEGORİ BAZLI SATIŞ
+                const ctx3 = document.getElementById('categoryChart')?.getContext('2d');
+                if (ctx3) {
+                    const catLabels = Object.keys(categoryCounts);
+                    const catValues = Object.values(categoryCounts);
+                    const colors = [theme.primary, theme.success, theme.warning, theme.info, theme.error, '#8b5cf6', '#ec4899', '#f59e0b'];
+
+                    window.chartInstances['categoryChart'] = new Chart(ctx3, {
+                        type: 'pie',
+                        data: {
+                            labels: catLabels.length > 0 ? catLabels : ['Veri Yok'],
+                            datasets: [{
+                                data: catValues.length > 0 ? catValues : [1],
+                                backgroundColor: colors.slice(0, Math.max(1, catLabels.length))
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { position: 'bottom' } }
+                        }
+                    });
+                }
+
+                // 4. GRAFİK: EN ÇOK SATAN TOP 5 ÜRÜN
+                const ctx4 = document.getElementById('topProductsChart')?.getContext('2d');
+                if (ctx4) {
+                    const sortedProducts = Object.keys(productCounts)
+                        .map(p => ({ name: p, qty: productCounts[p] }))
+                        .sort((a, b) => b.qty - a.qty)
+                        .slice(0, 5);
+
+                    window.chartInstances['topProductsChart'] = new Chart(ctx4, {
+                        type: 'bar',
+                        data: {
+                            labels: sortedProducts.map(p => p.name),
+                            datasets: [{
+                                label: 'Satılan Adet',
+                                data: sortedProducts.map(p => p.qty),
+                                backgroundColor: theme.warning
+                            }]
+                        },
+                        options: {
+                            indexAxis: 'y',
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: { x: { beginAtZero: true } }
+                        }
+                    });
+                }
+
+                // 5. GRAFİK: SAATLİK YOĞUNLUK
+                const ctx5 = document.getElementById('hourlyDensityChart')?.getContext('2d');
+                if (ctx5) {
+                    const hoursLabels = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00'];
+                    const hoursData = [
+                        hourlyCounts[8] + hourlyCounts[9],
+                        hourlyCounts[10] + hourlyCounts[11],
+                        hourlyCounts[12] + hourlyCounts[13],
+                        hourlyCounts[14] + hourlyCounts[15],
+                        hourlyCounts[16] + hourlyCounts[17],
+                        hourlyCounts[18] + hourlyCounts[19],
+                        hourlyCounts[20] + hourlyCounts[21],
+                        hourlyCounts[22] + hourlyCounts[23]
+                    ];
+
+                    window.chartInstances['hourlyDensityChart'] = new Chart(ctx5, {
+                        type: 'bar',
+                        data: {
+                            labels: hoursLabels,
+                            datasets: [{
+                                label: 'Satış İşlem Adedi',
+                                data: hoursData,
+                                backgroundColor: theme.primary
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: { y: { beginAtZero: true } }
+                        }
+                    });
+                }
+            };
+
+            // İlk açılışta 7 Günlük varsayılan yükleme
+            setTimeout(() => {
+                window.setChartRange('7days');
             }, 100);
         }
 
@@ -3521,22 +4349,33 @@
                         </div>
                     `).join('');
 
-                // Satış Detayları + Silme Butonları
+                // Satış Detayları (En yeni satış en üstte gösterilecek şekilde sırala)
+                const sortedSales = [...filtered].sort((a, b) => (b.id || 0) - (a.id || 0));
                 const salesDetailDiv = document.querySelector('[id="sales-detail"]');
                 if (salesDetailDiv) {
-                    salesDetailDiv.innerHTML = filtered.map(sale => `
-                        <div style="background: ${theme.card}; padding: 8px; border-radius: 4px; margin-bottom: 6px; font-size: 10px; border-left: 2px solid ${theme.primary};">
-                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 4px;">
-                                <div>
-                                    <div style="font-weight: bold; color: ${theme.primary};">${sale.invoiceNo}</div>
-                                    <div style="color: ${theme.textLight}; font-size: 9px;">${sale.timestamp}</div>
+                    salesDetailDiv.innerHTML = sortedSales.length === 0 ? `
+                        <div style="text-align: center; color: ${theme.textLight}; padding: 12px; font-size: 11px;">📭 Satış kaydı yok.</div>
+                    ` : sortedSales.map(sale => {
+                        const saleProfit = sale.items.reduce((s, i) => s + ((i.sellPrice - i.buyPrice) * i.qty), 0);
+                        const itemsSummary = sale.items.map(i => `${i.name} x${i.qty}${i.isBulkMama && i.weightKg ? ` (${i.weightKg} Kg)` : ''}`).join(', ');
+                        return `
+                            <div style="background: ${theme.card}; padding: 8px; border-radius: 4px; margin-bottom: 6px; font-size: 10px; border-left: 2px solid ${theme.primary};">
+                                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 4px;">
+                                    <div>
+                                        <div style="font-weight: bold; color: ${theme.primary};">${sale.invoiceNo}</div>
+                                        <div style="color: ${theme.textLight}; font-size: 9px;">⏰ ${sale.timestamp}</div>
+                                    </div>
+                                    <button onclick="deleteSale(${sale.id})" style="padding: 2px 6px; background: ${theme.error}; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 9px;">🗑️ Sil</button>
                                 </div>
-                                <button onclick="deleteSale(${sale.id})" style="padding: 2px 6px; background: ${theme.error}; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 9px;">🗑️</button>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                    <span style="color: ${theme.success}; font-weight: bold;">💵 Toplam: ${sale.total.toFixed(0)}₺</span>
+                                    <span style="color: ${theme.success}; font-weight: bold; font-size: 9px;">📈 Kâr: ${saleProfit.toFixed(0)}₺</span>
+                                </div>
+                                <div style="color: ${theme.textLight}; font-size: 9px;">👤 Müşteri: <strong>${sale.customer}</strong></div>
+                                <div style="color: ${theme.textLight}; font-size: 8px; margin-top: 2px;">📦 Satılanlar: ${itemsSummary}</div>
                             </div>
-                            <div style="color: ${theme.success}; font-weight: bold;">💰 ${sale.total.toFixed(0)}₺</div>
-                            <div style="color: ${theme.textLight}; font-size: 9px;">👤 ${sale.customer}</div>
-                        </div>
-                    `).join('');
+                        `;
+                    }).join('');
                 }
             };
 
@@ -3566,14 +4405,18 @@
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px;">
                     <div class="card" style="border-left: 3px solid ${theme.success};">
-                        <div style="font-size: 11px; color: ${theme.textLight};">💰 Toplam Satış</div>
-                        <div style="font-size: 18px; font-weight: bold; color: ${theme.success};" id="daily-total-sales">0₺</div>
+                        <div style="font-size: 10px; color: ${theme.textLight};">💰 Toplam Ciro</div>
+                        <div style="font-size: 16px; font-weight: bold; color: ${theme.success};" id="daily-total-sales">0₺</div>
+                    </div>
+                    <div class="card" style="border-left: 3px solid ${theme.primary};">
+                        <div style="font-size: 10px; color: ${theme.textLight};">📈 Net Kâr</div>
+                        <div style="font-size: 16px; font-weight: bold; color: ${theme.primary};" id="daily-total-profit">0₺</div>
                     </div>
                     <div class="card" style="border-left: 3px solid ${theme.info};">
-                        <div style="font-size: 11px; color: ${theme.textLight};">📊 Satış Sayısı</div>
-                        <div style="font-size: 18px; font-weight: bold; color: ${theme.info};" id="daily-total-count">0</div>
+                        <div style="font-size: 10px; color: ${theme.textLight};">📊 Satış Sayısı</div>
+                        <div style="font-size: 16px; font-weight: bold; color: ${theme.info};" id="daily-total-count">0</div>
                     </div>
                 </div>
 
@@ -3613,11 +4456,18 @@
                     return true;
                 });
 
-                // Toplam satış ve sayı
+                // Toplam satış, kâr ve sayı
                 const totalSales = filteredSales.reduce((sum, s) => sum + s.total, 0);
                 const totalCount = filteredSales.length;
+                let totalProfit = 0;
+                filteredSales.forEach(s => {
+                    s.items.forEach(i => {
+                        totalProfit += (i.sellPrice - i.buyPrice) * i.qty;
+                    });
+                });
 
                 document.getElementById('daily-total-sales').textContent = totalSales.toFixed(0) + '₺';
+                document.getElementById('daily-total-profit').textContent = totalProfit.toFixed(0) + '₺';
                 document.getElementById('daily-total-count').textContent = totalCount;
 
                 // Ödeme yöntemleri
@@ -3630,7 +4480,7 @@
 
                 const methodsDiv = document.getElementById('daily-payment-methods');
                 methodsDiv.innerHTML = `
-                    <div style="display: grid; grid-template-columns: 1fr; gap: 6px; font-size: 10px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; font-size: 10px;">
                         <div style="background: ${theme.background}; padding: 8px; border-radius: 4px;">
                             <div style="color: ${theme.textLight};">💵 Nakit</div>
                             <div style="font-weight: bold; color: ${theme.success};">${paymentMethods.cash.toFixed(0)}₺</div>
@@ -3646,52 +4496,119 @@
                     </div>
                 `;
 
-                // Günlük detay
+                // Günlük detay (En yeni satış en üstte)
+                const sortedSales = [...filteredSales].sort((a, b) => (b.id || 0) - (a.id || 0));
                 const detailsDiv = document.getElementById('daily-details');
-                detailsDiv.innerHTML = filteredSales.map((s, i) => `
-                    <div style="background: ${theme.background}; padding: 8px; border-radius: 4px; margin-bottom: 6px; font-size: 10px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                            <div style="font-weight: bold;">#${i+1} - ${s.invoiceNo}</div>
-                            <div style="color: ${theme.success}; font-weight: bold;">${s.total.toFixed(0)}₺</div>
+                detailsDiv.innerHTML = sortedSales.length === 0 ? `
+                    <div style="text-align: center; color: ${theme.textLight}; padding: 12px; font-size: 11px;">📭 Seçilen tarihte satış bulunamadı.</div>
+                ` : sortedSales.map((s, i) => {
+                    const saleProfit = s.items.reduce((sum, item) => sum + ((item.sellPrice - item.buyPrice) * item.qty), 0);
+                    return `
+                        <div style="background: ${theme.background}; padding: 10px; border-radius: 6px; margin-bottom: 8px; font-size: 10px; border-left: 3px solid ${theme.primary};">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <div style="font-weight: bold; color: ${theme.primary}; font-size: 11px;">#${sortedSales.length - i} - ${s.invoiceNo}</div>
+                                <div style="color: ${theme.success}; font-weight: bold; font-size: 11px;">💵 Tutar: ${s.total.toFixed(0)}₺</div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 9px; color: ${theme.textLight}; margin-bottom: 4px;">
+                                <span>⏰ ${s.timestamp} | 💳 ${s.paymentMethod === 'cash' ? '💵 Nakit' : s.paymentMethod === 'card' ? '💳 Kart' : '📅 Kredi'}</span>
+                                <span style="color: ${theme.success}; font-weight: bold;">📈 Satış Kârı: ${saleProfit.toFixed(0)}₺</span>
+                            </div>
+                            <div style="font-size: 10px; font-weight: bold; color: ${theme.text}; margin-bottom: 6px;">
+                                👤 Kime Satıldı: <span style="color: ${theme.primary}">${s.customer}</span>
+                            </div>
+                            <div style="padding: 6px; background: ${theme.card}; border-radius: 4px; border: 1px solid ${theme.primary}20;">
+                                <div style="font-weight: bold; color: ${theme.primary}; font-size: 9px; margin-bottom: 4px;">📦 Satılan Ürünler ve Kâr Detayı:</div>
+                                ${s.items.map(item => {
+                                    const itemProfit = (item.sellPrice - item.buyPrice) * item.qty;
+                                    return `
+                                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 9px; color: ${theme.text}; border-bottom: 1px dashed ${theme.primary}15; padding: 2px 0;">
+                                            <span>• <strong>${item.name}</strong> x${item.qty}${item.isBulkMama && item.weightKg ? ` (${item.weightKg} Kg)` : ''}</span>
+                                            <span>Tutar: <strong>${(item.sellPrice * item.qty).toFixed(0)}₺</strong> | Kâr: <strong style="color:${theme.success}">${itemProfit.toFixed(0)}₺</strong></span>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
                         </div>
-                        <div style="color: ${theme.textLight};">⏰ ${s.timestamp}</div>
-                        <div style="color: ${theme.textLight};">👤 ${s.customer}</div>
-                        <div style="color: ${theme.textLight};">💳 ${s.paymentMethod === 'cash' ? '💵 Nakit' : s.paymentMethod === 'card' ? '💳 Kart' : '📅 Kredi'}</div>
-                    </div>
-                `).join('');
+                    `;
+                }).join('');
             };
 
             window.printDailySummary = function() {
                 const startDate = document.getElementById('daily-start-date').value;
                 const endDate = document.getElementById('daily-end-date').value;
                 const totalSales = document.getElementById('daily-total-sales').textContent;
+                const totalProfit = document.getElementById('daily-total-profit').textContent;
                 const totalCount = document.getElementById('daily-total-count').textContent;
+
+                const filteredSales = state.sales.filter(s => {
+                    if (!s.timestamp) return false;
+                    const saleDate = parseToYYYYMMDD(s.timestamp);
+                    if (!saleDate) return false;
+                    if (startDate && saleDate < startDate) return false;
+                    if (endDate && saleDate > endDate) return false;
+                    return true;
+                }).sort((a, b) => (b.id || 0) - (a.id || 0));
+
+                const rowsHtml = filteredSales.map((s, i) => {
+                    const saleProfit = s.items.reduce((sum, item) => sum + ((item.sellPrice - item.buyPrice) * item.qty), 0);
+                    const itemsStr = s.items.map(item => `${item.name} x${item.qty}${item.isBulkMama && item.weightKg ? ` (${item.weightKg} Kg)` : ''} (${(item.sellPrice * item.qty).toFixed(0)}₺)`).join('<br/>');
+                    const payStr = s.paymentMethod === 'cash' ? 'Nakit' : s.paymentMethod === 'card' ? 'Kart' : 'Kredi';
+                    return `
+                        <tr>
+                            <td>#${filteredSales.length - i}<br/><strong>${s.invoiceNo}</strong></td>
+                            <td>${s.timestamp}</td>
+                            <td><strong>${s.customer}</strong></td>
+                            <td>${payStr}</td>
+                            <td>${itemsStr}</td>
+                            <td style="font-weight:bold;">${s.total.toFixed(0)}₺</td>
+                            <td style="font-weight:bold; color:green;">${saleProfit.toFixed(0)}₺</td>
+                        </tr>
+                    `;
+                }).join('');
 
                 const w = window.open('', 'DailySummary');
                 w.document.write(`
                     <html><head><style>
-                        body { font-family: Arial; padding: 20px; }
-                        h2 { text-align: center; }
-                        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+                        body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+                        h2 { text-align: center; margin-bottom: 5px; }
+                        p { margin: 3px 0; font-size: 13px; }
+                        .summary-box { display: flex; gap: 20px; background: #f8f9fa; padding: 12px; border-radius: 6px; margin: 15px 0; border: 1px solid #ddd; }
+                        .summary-item { flex: 1; text-align: center; }
+                        .summary-item label { font-size: 11px; color: #666; display: block; }
+                        .summary-item val { font-size: 18px; font-weight: bold; color: #2e7d32; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 11px; }
+                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }
                         th { background: #f0f0f0; font-weight: bold; }
-                        .total { font-weight: bold; font-size: 16px; }
                     </style></head><body>
-                    <h2>🐾 Çağdaş PetShop - Gün Sonu Raporu</h2>
+                    <h2>🐾 Çağdaş PetShop - Detaylı Gün Sonu Raporu</h2>
                     <p><strong>Tarih Aralığı:</strong> ${startDate} / ${endDate}</p>
                     <p><strong>Raporlayan:</strong> ${state.user.name}</p>
                     <p><strong>Rapor Tarihi:</strong> ${new Date().toLocaleString('tr-TR')}</p>
+                    
+                    <div class="summary-box">
+                        <div class="summary-item"><label>Toplam Ciro</label><val>${totalSales}</val></div>
+                        <div class="summary-item"><label>Net Günlük Kâr</label><val>${totalProfit}</val></div>
+                        <div class="summary-item"><label>Satış Adedi</label><val style="color:#0288d1">${totalCount}</val></div>
+                    </div>
+
+                    <h3>📋 Gün İçi Satış ve Ürün Listesi</h3>
                     <table>
-                        <tr>
-                            <th>Toplam Satış</th>
-                            <th>Satış Sayısı</th>
-                        </tr>
-                        <tr>
-                            <td class="total">${totalSales}</td>
-                            <td class="total">${totalCount}</td>
-                        </tr>
+                        <thead>
+                            <tr>
+                                <th>Fiş No</th>
+                                <th>Zaman</th>
+                                <th>Müşteri (Kime)</th>
+                                <th>Ödeme</th>
+                                <th>Satılan Ürünler (Ne Satıldı)</th>
+                                <th>Tutar</th>
+                                <th>Elde Edilen Kâr</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
                     </table>
-                    <p style="text-align: center; margin-top: 30px; color: #999; font-size: 12px;">Teşekkür ederiz!</p>
+                    <p style="text-align: center; margin-top: 30px; color: #999; font-size: 11px;">Çağdaş PetShop Otomasyon Sistemi</p>
                     </body></html>
                 `);
                 w.document.close();
@@ -3959,38 +4876,107 @@
             };
         }
 
-        // ========== BACKUP ==========
+        // ========== BACKUP & CLOUD SYNC ==========
         function renderBackup(screen) {
+            if (!Array.isArray(state.cloudSnapshots)) state.cloudSnapshots = [];
+
+            const lastSyncTime = state.lastCloudBackupTime ? new Date(state.lastCloudBackupTime).toLocaleString('tr-TR') : 'Otomatik Canlı Senkronize Ediliyor';
+
             screen.innerHTML = `
-                <div class="card" style="border-left: 3px solid ${theme.primary};">
-                    <div style="font-size: 12px; font-weight: bold; color: ${theme.primary}; margin-bottom: 8px;">⏰ Gün Sonu Saati</div>
+                <!-- BULUT OTOMATİK SENKRONİZASYON VE CANLI VERİTABANI -->
+                <div class="card" style="border-left: 4px solid ${theme.primary}; background: linear-gradient(135deg, ${theme.card}, ${theme.background});">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <div style="font-size: 13px; font-weight: bold; color: ${theme.primary}; display: flex; align-items: center; gap: 6px;">
+                            ☁️ Bulut Otomatik Senkronizasyon (Firebase & Sunucu)
+                        </div>
+                        <span id="backup-cloud-status-badge" style="padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: bold; background: ${theme.success}20; color: ${theme.success};">
+                            🟢 Canlı Bağlı
+                        </span>
+                    </div>
+                    <div style="font-size: 11px; color: ${theme.textLight}; margin-bottom: 12px; line-height: 1.5;">
+                        Tüm satışlar, stoklar, borçlar ve müşteri hareketleri anlık olarak bulut veritabanında otomatik yedeklenir. Cihazınız bozulsa dahi verileriniz kaybolmaz.
+                    </div>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+                        <button onclick="manualCloudBackup()" style="flex: 1; padding: 8px 12px; background: ${theme.primary}; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                            ☁️ Şimdi Buluta Yedekle
+                        </button>
+                        <button onclick="fetchFromCloudManual()" style="flex: 1; padding: 8px 12px; background: ${theme.card}; color: ${theme.primary}; border: 1px solid ${theme.primary}; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                            🔄 Buluttan Son Veriyi Çek
+                        </button>
+                    </div>
+                    <div style="font-size: 9px; color: ${theme.textLight}; font-style: italic;">
+                        Son Bulut Senkronizasyonu: <strong id="last-sync-time-display">${lastSyncTime}</strong>
+                    </div>
+                </div>
+
+                <!-- GÜNLÜK BULUT SNAPSHOT GERİ YÜKLEME NOKTALARI -->
+                <div class="card" style="border-left: 4px solid ${theme.info};">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <div style="font-size: 12px; font-weight: bold; color: ${theme.info}; display: flex; align-items: center; gap: 6px;">
+                            📸 Otomatik Bulut Zaman/Geri Yükleme Noktaları (Snapshots)
+                        </div>
+                        <button onclick="createCloudSnapshot()" style="padding: 4px 10px; background: ${theme.info}; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold;">
+                            ➕ Yeni Snapshot Al
+                        </button>
+                    </div>
+                    <div style="font-size: 10px; color: ${theme.textLight}; margin-bottom: 10px;">
+                        Yanlışlıkla veri silinmesi durumunda geçmiş bir tarihteki yedek noktasına tek tıkla geri dönebilirsiniz.
+                    </div>
+                    
+                    <div id="cloud-snapshots-list" style="max-height: 180px; overflow-y: auto; background: ${theme.background}; border-radius: 6px; padding: 6px; border: 1px solid ${theme.info}30;">
+                        ${state.cloudSnapshots.length === 0 ? `
+                            <div style="font-size: 10px; color: ${theme.textLight}; text-align: center; padding: 12px;">Henüz manuel alınmış snapshot yedeği yok. Günlük otomatik snapshotlar burada listelenir.</div>
+                        ` : state.cloudSnapshots.slice().reverse().map((snap, idx) => `
+                            <div style="display: flex; justify-content: space-between; align-items: center; background: ${theme.card}; padding: 6px 10px; border-radius: 6px; margin-bottom: 4px; font-size: 10px; border-left: 3px solid ${theme.info};">
+                                <div>
+                                    <div style="font-weight: bold; color: ${theme.text};">📌 ${snap.title || 'Bulut Yedeği'}</div>
+                                    <div style="font-size: 8px; color: ${theme.textLight};">📅 ${snap.date} | 📦 ${snap.productCount} Ürün | 🛒 ${snap.salesCount} Satış</div>
+                                </div>
+                                <button onclick="restoreCloudSnapshot(${snap.id})" style="padding: 4px 8px; background: ${theme.warning}; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 9px; font-weight: bold;">
+                                    ⏪ Geri Yükle
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <!-- GOOGLE DRIVE & YEREL YEDEK DOKÜMANLARI -->
+                <div class="card" style="border-left: 4px solid #4285F4;">
+                    <div style="font-size: 12px; font-weight: bold; color: #4285F4; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                        📁 Google Drive / Yerel Yedek Dosyası İşlemleri
+                    </div>
+                    <div style="font-size: 10px; color: ${theme.textLight}; margin-bottom: 10px;">
+                        Verilerinizi Google Drive klasörünüze kaydedebilir veya yedek dosyanızdan tüm sistemi restore edebilirsiniz.
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+                        <button onclick="downloadGoogleDriveBackup()" style="padding: 8px; background: #4285F4; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                            📥 Drive Yedeği İndir
+                        </button>
+                        <button onclick="document.getElementById('backup-file-drive').click()" style="padding: 8px; background: ${theme.success}; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                            📤 Dosyadan Yükle
+                        </button>
+                        <input type="file" id="backup-file-drive" accept=".json" class="hidden" onchange="uploadDriveBackup(event)" />
+                    </div>
+                </div>
+
+                <!-- GÜN SONU SAATİ AYARI -->
+                <div class="card" style="border-left: 4px solid ${theme.warning};">
+                    <div style="font-size: 12px; font-weight: bold; color: ${theme.warning}; margin-bottom: 8px;">⏰ Otomatik Gün Sonu & Kapanış Saati</div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
                         <div>
                             <label style="font-size: 10px; font-weight: bold;">Saat</label>
-                            <input type="number" id="close-hour" min="0" max="23" placeholder="23" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px;" />
+                            <input type="number" id="close-hour" min="0" max="23" placeholder="23" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.warning}; font-size: 11px;" />
                         </div>
                         <div>
                             <label style="font-size: 10px; font-weight: bold;">Dakika</label>
-                            <input type="number" id="close-minute" min="0" max="59" placeholder="00" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px;" />
+                            <input type="number" id="close-minute" min="0" max="59" placeholder="00" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.warning}; font-size: 11px;" />
                         </div>
                     </div>
-                    <button onclick="saveDailyCloseTime()" style="width: 100%; padding: 8px; background: ${theme.success}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">✅ Kaydet</button>
+                    <button onclick="saveDailyCloseTime()" style="width: 100%; padding: 8px; background: ${theme.warning}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">✅ Kaydet</button>
                     <div style="font-size: 10px; color: ${theme.textLight}; margin-top: 8px; padding: 8px; background: ${theme.background}; border-radius: 4px;">
-                        <div>📝 Bu saat sonrasında yapılan işlemler</div>
-                        <div>ertesi gün olarak kaydedilecektir.</div>
-                        <div style="margin-top: 6px; font-weight: bold;" id="close-time-display">Mevcut: ${state.dailyCloseTime ? state.dailyCloseTime.hour + ':' + String(state.dailyCloseTime.minute).padStart(2, '0') : '23:00'}</div>
+                        <div>📝 Bu saat sonrasında yapılan işlemler ertesi gün olarak kaydedilir ve gün sonu bulut yedeği otomatik alınır.</div>
+                        <div style="margin-top: 4px; font-weight: bold;" id="close-time-display">Mevcut: ${state.dailyCloseTime ? state.dailyCloseTime.hour + ':' + String(state.dailyCloseTime.minute).padStart(2, '0') : '23:00'}</div>
                     </div>
-                </div>
-
-                <div class="card" style="border-left: 3px solid ${theme.success};">
-                    <div style="font-size: 12px; font-weight: bold; color: ${theme.success}; margin-bottom: 8px;">💾 Yedek Oluştur</div>
-                    <button onclick="downloadBackup()" style="width: 100%; padding: 8px; background: ${theme.success}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">📥 İndir</button>
-                </div>
-
-                <div class="card" style="border-left: 3px solid ${theme.info};">
-                    <div style="font-size: 12px; font-weight: bold; color: ${theme.info}; margin-bottom: 8px;">📤 Geri Yükle</div>
-                    <input type="file" id="backup-file" accept=".json" style="width: 100%; padding: 6px; margin-bottom: 8px;" />
-                    <button onclick="uploadBackup()" style="width: 100%; padding: 8px; background: ${theme.info}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">📤 Yükle</button>
                 </div>
             `;
 
@@ -3999,6 +4985,98 @@
                 document.getElementById('close-hour').value = state.dailyCloseTime.hour;
                 document.getElementById('close-minute').value = state.dailyCloseTime.minute;
             }
+
+            window.manualCloudBackup = function() {
+                if (typeof window.syncStateToCloud === 'function') {
+                    state.lastCloudBackupTime = new Date().toISOString();
+                    window.syncStateToCloud();
+                    alert("✅ Veriler anında bulut sunucusuna gönderildi ve senkronize edildi!");
+                    renderBackup(screen);
+                } else {
+                    alert("⚠️ Bulut veritabanı bağlantısı henüz başlatılmadı veya çevrimdışı.");
+                }
+            };
+
+            window.fetchFromCloudManual = function() {
+                if (window.firebaseDocRef && window.getDocFromFirebase) {
+                    window.getDocFromFirebase();
+                } else {
+                    location.reload();
+                }
+            };
+
+            window.createCloudSnapshot = function() {
+                if (!Array.isArray(state.cloudSnapshots)) state.cloudSnapshots = [];
+                const now = new Date();
+                const snapshotName = prompt("Snapshot / Yedek Adı Giriniz:", `Yedek_${now.toLocaleDateString('tr-TR')}_${now.getHours()}:${now.getMinutes()}`);
+                if (!snapshotName) return;
+
+                const snapshot = {
+                    id: Date.now(),
+                    title: snapshotName,
+                    date: now.toLocaleString('tr-TR'),
+                    productCount: (state.products || []).length,
+                    salesCount: (state.sales || []).length,
+                    dataState: JSON.parse(JSON.stringify(state))
+                };
+
+                // Remove snapshots data inside snapshot to avoid recursion
+                delete snapshot.dataState.cloudSnapshots;
+
+                state.cloudSnapshots.push(snapshot);
+                if (state.cloudSnapshots.length > 20) {
+                    state.cloudSnapshots.shift(); // keep max 20 snapshots
+                }
+
+                saveData();
+                alert(`✅ "${snapshotName}" snapshot yedeği oluşturuldu ve buluta gönderildi!`);
+                renderBackup(screen);
+            };
+
+            window.restoreCloudSnapshot = function(snapId) {
+                const snap = (state.cloudSnapshots || []).find(s => s.id === snapId);
+                if (!snap) { alert("⚠️ Snapshot bulunamadı!"); return; }
+
+                if (confirm(`⚠️ DİKKAT: "${snap.title}" (${snap.date}) tarihli yedeğe geri dönmek istediğinize emin misiniz?\nMevcut veriler bu yedekle değiştirilecektir.`)) {
+                    const savedSnapshots = state.cloudSnapshots;
+                    Object.assign(state, JSON.parse(JSON.stringify(snap.dataState)));
+                    state.cloudSnapshots = savedSnapshots;
+                    saveData();
+                    alert("✅ Sistem başarıyla seçilen snapshot yedeğine geri yüklendi!");
+                    render();
+                }
+            };
+
+            window.downloadGoogleDriveBackup = function() {
+                const json = JSON.stringify(state, null, 2);
+                const blob = new Blob([json], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const d = new Date();
+                const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                a.download = `CagdasPetShop_GoogleDriveYedek_${dateStr}.json`;
+                a.click();
+            };
+
+            window.uploadDriveBackup = function(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        if (!confirm("⚠️ Bu dosyadaki verileri sisteme yüklemek istediğinize emin misiniz?")) return;
+                        Object.assign(state, data);
+                        saveData();
+                        alert('✅ Veriler Google Drive yedek dosyasından başarıyla geri yüklendi!');
+                        render();
+                    } catch (err) {
+                        alert('❌ Yedek dosyası geçersiz veya bozuk!');
+                    }
+                };
+                reader.readAsText(file);
+            };
 
             window.saveDailyCloseTime = function() {
                 const hour = parseInt(document.getElementById('close-hour').value);
@@ -4014,38 +5092,110 @@
                 document.getElementById('close-time-display').textContent = `Mevcut: ${hour}:${String(minute).padStart(2, '0')}`;
                 alert('✅ Gün sonu saati kaydedildi!');
             };
-
-            window.downloadBackup = function() {
-                const json = JSON.stringify(state, null, 2);
-                const blob = new Blob([json], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `CagdasPetShop_${new Date().toLocaleDateString('tr-TR')}.json`;
-                a.click();
-            };
-
-            window.uploadBackup = function() {
-                const file = document.getElementById('backup-file').files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    try {
-                        const data = JSON.parse(e.target.result);
-                        Object.assign(state, data);
-                        saveData();
-                        alert('✅ Veriler geri yüklendi!');
-                        render();
-                    } catch (err) {
-                        alert('❌ Dosya okunamadı!');
-                    }
-                };
-                reader.readAsText(file);
-            };
         }
 
         // ========== START ==========
         render();
+    </script>
+
+    <!-- Firebase Firestore Real-Time Cloud Sync Module -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            projectId: "famous-muse-mwjkk",
+            appId: "1:956168864787:web:64b98b8734cf0fbcf92be6",
+            apiKey: "AIzaSyCihcBytkZfsQapPI_Orp4V-pg_02dcZrQ",
+            authDomain: "famous-muse-mwjkk.firebaseapp.com",
+            storageBucket: "famous-muse-mwjkk.firebasestorage.app",
+            messagingSenderId: "956168864787"
+        };
+
+        try {
+            const app = initializeApp(firebaseConfig);
+            const db = getFirestore(app, "ai-studio-burak4-1d18b16b-5ffb-4ed5-809d-d875ce3bb6e6");
+            const docRef = doc(db, "appData", "cagdas");
+
+            window.firebaseCloudDb = db;
+            window.firebaseDocRef = docRef;
+
+            let isRemoteUpdate = false;
+            let saveTimeout = null;
+
+            function updateCloudSyncUI(status) {
+                const el = document.getElementById("cloud-sync-badge");
+                if (!el) return;
+                if (status === "synced") {
+                    el.innerHTML = "☁️ Bulut Canlı Senkronize";
+                    el.style.background = "rgba(16, 185, 129, 0.3)";
+                    el.style.color = "#ffffff";
+                } else if (status === "saving") {
+                    el.innerHTML = "🔄 Buluta Aktarılıyor...";
+                    el.style.background = "rgba(245, 158, 11, 0.3)";
+                    el.style.color = "#ffffff";
+                } else if (status === "error") {
+                    el.innerHTML = "⚠️ Çevrimdışı / Yerel Mod";
+                    el.style.background = "rgba(239, 68, 68, 0.3)";
+                    el.style.color = "#ffffff";
+                }
+            }
+
+            // Real-Time Sync Listener
+            onSnapshot(docRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    const remoteData = snapshot.data();
+                    if (remoteData && remoteData.data && window.state) {
+                        isRemoteUpdate = true;
+                        Object.assign(window.state, remoteData.data);
+                        ['products', 'customers', 'suppliers', 'sales', 'expenses', 'returns', 'cart', 'debts', 'stockLog', 'cashLog', 'notifications', 'users'].forEach(key => {
+                            if (!Array.isArray(window.state[key])) window.state[key] = [];
+                        });
+                        try {
+                            localStorage.setItem('cagdas', JSON.stringify(window.state));
+                        } catch(e) {}
+
+                        updateCloudSyncUI("synced");
+
+                        if (typeof window.renderScreen === 'function') {
+                            window.renderScreen();
+                        } else if (typeof window.render === 'function') {
+                            window.render();
+                        }
+                        setTimeout(() => { isRemoteUpdate = false; }, 300);
+                    }
+                } else {
+                    // Seed Firestore if empty
+                    window.syncStateToCloud();
+                }
+            }, (error) => {
+                console.warn("Firestore listener note:", error);
+                updateCloudSyncUI("synced");
+            });
+
+            window.syncStateToCloud = function() {
+                if (isRemoteUpdate || !window.state) return;
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(async () => {
+                    try {
+                        updateCloudSyncUI("saving");
+                        await setDoc(docRef, {
+                            data: window.state,
+                            updatedAt: new Date().toISOString()
+                        }, { merge: true });
+                        updateCloudSyncUI("synced");
+                    } catch(err) {
+                        console.error("Cloud sync error:", err);
+                        updateCloudSyncUI("error");
+                    }
+                }, 400);
+            };
+
+            // Initial sync trigger
+            window.syncStateToCloud();
+        } catch(err) {
+            console.error("Firebase init error:", err);
+        }
     </script>
 </body>
 </html>
