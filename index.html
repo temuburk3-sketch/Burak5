@@ -154,14 +154,53 @@
             const isGlass = theme.cardGlass === true;
 
             const bgImgUrl = theme.bgImage || '';
-            const bgOpacity = theme.bgOpacity !== undefined ? theme.bgOpacity : 0.2;
+            const bgVideoUrl = theme.bgVideo || '';
+            const bgOpacity = theme.bgOpacity !== undefined ? theme.bgOpacity : 0.25;
             const bgBlur = theme.bgBlur || 0;
+
+            // Global Background Video Engine
+            let bgVideoElem = document.getElementById('global-bg-video');
+            if (bgVideoUrl) {
+                if (!bgVideoElem) {
+                    bgVideoElem = document.createElement('video');
+                    bgVideoElem.id = 'global-bg-video';
+                    bgVideoElem.autoplay = true;
+                    bgVideoElem.loop = true;
+                    bgVideoElem.muted = true;
+                    bgVideoElem.playsInline = true;
+                    bgVideoElem.setAttribute('muted', '');
+                    bgVideoElem.setAttribute('playsinline', '');
+                    bgVideoElem.setAttribute('autoplay', '');
+                    bgVideoElem.setAttribute('loop', '');
+                    document.body.prepend(bgVideoElem);
+                }
+                bgVideoElem.style.display = 'block';
+                bgVideoElem.style.position = 'fixed';
+                bgVideoElem.style.top = '0';
+                bgVideoElem.style.left = '0';
+                bgVideoElem.style.width = '100vw';
+                bgVideoElem.style.height = '100vh';
+                bgVideoElem.style.objectFit = 'cover';
+                bgVideoElem.style.opacity = bgOpacity;
+                bgVideoElem.style.filter = `blur(${bgBlur}px)`;
+                bgVideoElem.style.pointerEvents = 'none';
+                bgVideoElem.style.zIndex = '-1';
+
+                if (bgVideoElem.src !== bgVideoUrl) {
+                    bgVideoElem.src = bgVideoUrl;
+                    bgVideoElem.play().catch(err => console.log('Video bg autoplay:', err));
+                }
+            } else {
+                if (bgVideoElem) {
+                    bgVideoElem.style.display = 'none';
+                }
+            }
 
             const headerGradient = isGrad 
                 ? `linear-gradient(135deg, ${currentPrimary} 0%, ${currentSecondary} 100%)`
                 : currentPrimary;
 
-            const bgStyleRule = bgImgUrl ? `
+            const bgStyleRule = (bgImgUrl && !bgVideoUrl) ? `
                 body::before {
                     content: "";
                     position: fixed;
@@ -181,9 +220,11 @@
 
             const glassStyleRule = isGlass ? `
                 .card, .drawer {
-                    backdrop-filter: blur(12px) !important;
-                    -webkit-backdrop-filter: blur(12px) !important;
+                    backdrop-filter: blur(14px) !important;
+                    -webkit-backdrop-filter: blur(14px) !important;
                     background-color: ${theme.card}e6 !important;
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
+                    border: 1px solid rgba(255, 255, 255, 0.15) !important;
                 }
             ` : '';
 
@@ -193,13 +234,20 @@
                     background-color: ${theme.background || '#f9f5ff'} !important;
                     color: ${theme.text || '#1f2937'} !important;
                     position: relative;
+                    min-height: 100vh;
                 }
                 .header {
                     background: ${headerGradient} !important;
+                    box-shadow: 0 4px 15px ${currentPrimary}35 !important;
                 }
                 .card {
                     border-radius: ${radius} !important;
                     background-color: ${theme.card || '#ffffff'};
+                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+                    transition: transform 0.2s ease, box-shadow 0.2s ease;
+                }
+                .card:hover {
+                    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
                 }
                 .drawer-nav-item.active {
                     background: ${headerGradient} !important;
@@ -207,6 +255,102 @@
                 }
                 ${bgStyleRule}
                 ${glassStyleRule}
+
+                /* Mobile & PC Layout Refinement */
+                .pos-layout-wrapper {
+                    display: grid;
+                    grid-template-columns: 1fr;
+                    gap: 12px;
+                }
+                @media (min-width: 900px) {
+                    .pos-layout-wrapper {
+                        grid-template-columns: 1.6fr 1fr;
+                        align-items: start;
+                    }
+                }
+                .pos-products-scroll-wrapper {
+                    max-height: 320px;
+                    min-height: 180px;
+                    overflow-y: auto;
+                    overflow-x: hidden;
+                    padding-right: 4px;
+                    scroll-behavior: smooth;
+                }
+                .pos-products-scroll-wrapper::-webkit-scrollbar {
+                    width: 5px;
+                }
+                .pos-products-scroll-wrapper::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                .pos-products-scroll-wrapper::-webkit-scrollbar-thumb {
+                    background: rgba(140, 140, 140, 0.3);
+                    border-radius: 10px;
+                }
+                .pos-products-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+                    background: rgba(140, 140, 140, 0.6);
+                }
+                .pos-products-grid {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 8px;
+                }
+                .pos-product-card {
+                    background: ${theme.card || '#ffffff'};
+                    padding: 8px 6px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    text-align: center;
+                    border: 1px solid ${theme.primary}20;
+                    transition: all 0.15s ease;
+                }
+                .pos-product-card:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+                    border-color: ${theme.primary};
+                }
+                @media (max-width: 768px) {
+                    .grid-2 {
+                        grid-template-columns: repeat(2, 1fr) !important;
+                        gap: 6px !important;
+                    }
+                    .grid-3 {
+                        grid-template-columns: repeat(3, 1fr) !important;
+                        gap: 6px !important;
+                    }
+                    .grid-4 {
+                        grid-template-columns: repeat(2, 1fr) !important;
+                        gap: 6px !important;
+                    }
+                    .card {
+                        padding: 8px 10px !important;
+                        margin-bottom: 6px !important;
+                        border-radius: 8px !important;
+                    }
+                    button {
+                        min-height: unset !important;
+                    }
+                    .pos-products-grid {
+                        grid-template-columns: repeat(3, 1fr) !important;
+                        gap: 4px !important;
+                    }
+                    .pos-product-card {
+                        padding: 6px 4px !important;
+                    }
+                    .pos-products-scroll-wrapper {
+                        max-height: 200px !important;
+                    }
+                }
+                @media (min-width: 1200px) {
+                    .pos-products-grid {
+                        grid-template-columns: repeat(4, 1fr);
+                    }
+                }
+                @media (min-width: 769px) {
+                    .container, #app {
+                        max-width: 1280px;
+                        margin: 0 auto;
+                    }
+                }
             `;
         }
 
@@ -1257,130 +1401,170 @@
         // ========== POS (KASA) ==========
         function renderPOS(screen) {
             screen.innerHTML = `
-                <div style="margin-bottom: 12px;">
-                    <label style="font-size: 10px; font-weight: bold; color: ${theme.primary}; display: block; margin-bottom: 3px;">👤 Müşteri Seçimi</label>
-                    <select id="pos-customer" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid ${theme.primary}; font-size: 12px; font-weight: bold; background: ${theme.card}; color: ${theme.text};">
-                        <option value="0">Peşin Alıcı</option>
-                        ${state.customers.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
-                    </select>
-                </div>
+                <div class="pos-layout-wrapper">
+                    <!-- SOL TARAFI / ÜST: ÜRÜN ARAMA, SEÇİM VE SCROLL EDİLEBİLİR KATALOG -->
+                    <div class="pos-left-section">
+                        <!-- ÜST SEÇİM VE MİKTAR / ARAMA BARI -->
+                        <div style="background: ${theme.card}; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid ${theme.primary}25;">
+                            <div style="display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap;">
+                                <div style="flex: 1; min-width: 140px;">
+                                    <label style="font-size: 10px; font-weight: bold; color: ${theme.primary}; display: block; margin-bottom: 3px;">👤 Müşteri Seçimi</label>
+                                    <select id="pos-customer" style="width: 100%; padding: 7px; border-radius: 6px; border: 1px solid ${theme.primary}; font-size: 11px; font-weight: bold; background: ${theme.background}; color: ${theme.text};">
+                                        <option value="0">Peşin Alıcı (Anonim)</option>
+                                        ${state.customers.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+                                    </select>
+                                </div>
 
-                <div style="background: ${theme.card}; padding: 10px; border-radius: 8px; margin-bottom: 12px; border: 1px solid ${theme.primary}30;">
-                    <div style="display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap;">
-                        <div style="min-width: 100px; flex: 0 0 auto;">
-                            <label style="font-size: 10px; font-weight: bold; color: ${theme.primary}; display: block; margin-bottom: 3px;">⚡ Hızlı Miktar</label>
-                            <input id="pos-quick-qty" type="number" min="1" value="1" style="width: 100%; padding: 6px; border-radius: 4px; border: 2px solid ${theme.primary}; font-size: 14px; font-weight: bold; text-align: center; background: ${theme.background}; color: ${theme.text};" onfocus="this.select()" onkeydown="if(event.key === 'Enter'){ event.preventDefault(); this.blur(); }" title="Eklemek istediğiniz miktarı yazın (Örn: 10, 50)" />
-                        </div>
-                        <div style="display: flex; gap: 3px; align-items: center; margin-bottom: 2px;">
-                            <button onclick="setQuickQty(1)" style="padding: 6px 8px; background: ${theme.background}; color: ${theme.primary}; border: 1px solid ${theme.primary}; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold;">1</button>
-                            <button onclick="setQuickQty(5)" style="padding: 6px 8px; background: ${theme.background}; color: ${theme.primary}; border: 1px solid ${theme.primary}; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold;">5</button>
-                            <button onclick="setQuickQty(10)" style="padding: 6px 8px; background: ${theme.background}; color: ${theme.primary}; border: 1px solid ${theme.primary}; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold;">10</button>
-                            <button onclick="setQuickQty(20)" style="padding: 6px 8px; background: ${theme.background}; color: ${theme.primary}; border: 1px solid ${theme.primary}; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold;">20</button>
-                        </div>
-                        <div style="flex: 1; min-width: 130px;">
-                            <label style="font-size: 10px; font-weight: bold; display: block; margin-bottom: 3px;">🔍 Ürün Ara</label>
-                            <input id="search" placeholder="İsim, SKU..." style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px;" />
-                        </div>
-                        <div style="flex: 1; min-width: 130px;">
-                            <label style="font-size: 10px; font-weight: bold; display: block; margin-bottom: 3px;">📦 Barkod</label>
-                            <input id="barcode-input" placeholder="Barkod yaz ve Enter..." style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px;" onkeypress="handleBarcodeSearch(event)" oninput="filterByBarcodeInput()" />
-                        </div>
-                        <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-                            <button onclick="openBulkMamaSaleModal()" style="padding: 6px 10px; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px; display: flex; align-items: center; gap: 4px;">⚖️ Açık Mama Satışı</button>
-                            <button onclick="togglePosCameraMode('qr')" style="padding: 6px 10px; background: ${theme.info}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px;">🔳 QR</button>
-                            <button onclick="togglePosCameraMode('barcode')" style="padding: 6px 10px; background: ${theme.warning}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px;">📦 Barkod</button>
-                        </div>
-                    </div>
-                </div>
+                                <div style="min-width: 90px; flex: 0 0 auto;">
+                                    <label style="font-size: 10px; font-weight: bold; color: ${theme.primary}; display: block; margin-bottom: 3px;">⚡ Hızlı Miktar</label>
+                                    <input id="pos-quick-qty" type="number" min="1" value="1" style="width: 100%; padding: 6px; border-radius: 6px; border: 2px solid ${theme.primary}; font-size: 13px; font-weight: bold; text-align: center; background: ${theme.background}; color: ${theme.text};" onfocus="this.select()" onkeydown="if(event.key === 'Enter'){ event.preventDefault(); this.blur(); }" title="Eklenecek miktarı yazın (Örn: 5)" />
+                                </div>
 
-                <div id="pos-camera-container" class="hidden camera-container" style="border-color: ${theme.primary}; background: ${theme.card};">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px; align-items: center;">
-                        <div style="font-weight: bold; color: ${theme.primary}; font-size: 13px;">📷 Kasa Kamera Okuyucu</div>
-                        <button onclick="closePosCameraMode()" style="padding: 4px 10px; background: ${theme.error}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px;">✕ Kapat</button>
-                    </div>
+                                <div style="display: flex; gap: 3px; align-items: center; margin-bottom: 2px;">
+                                    <button onclick="setQuickQty(1)" style="padding: 6px 8px; background: ${theme.background}; color: ${theme.primary}; border: 1px solid ${theme.primary}; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold;">1</button>
+                                    <button onclick="setQuickQty(5)" style="padding: 6px 8px; background: ${theme.background}; color: ${theme.primary}; border: 1px solid ${theme.primary}; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold;">5</button>
+                                    <button onclick="setQuickQty(10)" style="padding: 6px 8px; background: ${theme.background}; color: ${theme.primary}; border: 1px solid ${theme.primary}; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold;">10</button>
+                                    <button onclick="setQuickQty(20)" style="padding: 6px 8px; background: ${theme.background}; color: ${theme.primary}; border: 1px solid ${theme.primary}; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold;">20</button>
+                                </div>
+                            </div>
 
-                    <div class="camera-viewport-wrapper">
-                        <video id="pos-camera-video" class="camera-video" playsinline></video>
-                        <div class="viewfinder-overlay">
-                            <div class="viewfinder-box">
-                                <div class="laser-line"></div>
-                                <div class="corner corner-tl"></div>
-                                <div class="corner corner-tr"></div>
-                                <div class="corner corner-bl"></div>
-                                <div class="corner corner-br"></div>
+                            <div style="display: flex; gap: 6px; margin-top: 8px; align-items: center; flex-wrap: wrap;">
+                                <div style="flex: 2; min-width: 130px;">
+                                    <input id="search" placeholder="🔍 Ürün ara (isim, SKU)..." style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid ${theme.primary}; font-size: 11px; background: ${theme.background}; color: ${theme.text};" />
+                                </div>
+                                <div style="flex: 1; min-width: 120px;">
+                                    <input id="barcode-input" placeholder="📦 Barkod yaz & Enter..." style="width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid ${theme.primary}; font-size: 11px; background: ${theme.background}; color: ${theme.text};" onkeypress="handleBarcodeSearch(event)" oninput="filterByBarcodeInput()" />
+                                </div>
+                                <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                                    <button onclick="openBulkMamaSaleModal()" style="padding: 7px 10px; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 11px; white-space: nowrap;">⚖️ Açık Mama</button>
+                                    <button onclick="togglePosCameraMode('qr')" style="padding: 7px 10px; background: ${theme.info}; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 11px;">🔳 QR</button>
+                                    <button onclick="togglePosCameraMode('barcode')" style="padding: 7px 10px; background: ${theme.warning}; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 11px;">📦 Barkod</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- KAMERA MODÜLÜ -->
+                        <div id="pos-camera-container" class="hidden camera-container" style="border-color: ${theme.primary}; background: ${theme.card}; margin-bottom: 10px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; align-items: center;">
+                                <div style="font-weight: bold; color: ${theme.primary}; font-size: 13px;">📷 Kasa Kamera Okuyucu</div>
+                                <button onclick="closePosCameraMode()" style="padding: 4px 10px; background: ${theme.error}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px;">✕ Kapat</button>
+                            </div>
+
+                            <div class="camera-viewport-wrapper">
+                                <video id="pos-camera-video" class="camera-video" playsinline></video>
+                                <div class="viewfinder-overlay">
+                                    <div class="viewfinder-box">
+                                        <div class="laser-line"></div>
+                                        <div class="corner corner-tl"></div>
+                                        <div class="corner corner-tr"></div>
+                                        <div class="corner corner-bl"></div>
+                                        <div class="corner corner-br"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="cam-toolbar">
+                                <button id="pos-batch-btn" onclick="toggleBatchScanMode('pos-batch-btn', 'pos')" class="cam-btn" style="background: ${theme.card};">⚡ Seri Okuma: KAPALI</button>
+                                <button id="pos-torch-btn" onclick="toggleCameraTorch('pos-torch-btn')" class="cam-btn" style="background: ${theme.card};">💡 Fener</button>
+                                <button onclick="cycleCameraDevice('pos')" class="cam-btn" style="background: ${theme.card};">🔄 Kamera Değiştir</button>
+                                <button id="pos-contrast-btn" onclick="toggleContrastEnhancement('pos-contrast-btn')" class="cam-btn" style="background: ${theme.card};">🔍 Kontrast</button>
+                                <label class="cam-btn" style="cursor: pointer; display: inline-flex; justify-content: center; align-items: center;">
+                                    🖼️ Resim Seç
+                                    <input type="file" accept="image/*" onchange="handleGalleryImageUpload(event, handlePosScannedCode, document.getElementById('pos-camera-result'))" style="display: none;" />
+                                </label>
+                            </div>
+
+                            <div id="pos-camera-result" class="camera-result" style="background: ${theme.background}; color: ${theme.textLight};">📸 Barkod veya QR kodu kırmızı çizgiye hizalayın...</div>
+
+                            <div id="pos-batch-log-container" class="batch-log-box hidden">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                    <div style="font-weight: bold; font-size: 11px; color: ${theme.primary}">📋 Seri Okunanlar (<span id="pos-batch-count-badge">0</span> Ürün)</div>
+                                    <button onclick="clearBatchScanLog('pos')" style="padding: 2px 6px; background: ${theme.error}20; color: ${theme.error}; border: 1px solid ${theme.error}; border-radius: 3px; cursor: pointer; font-size: 9px; font-weight: bold;">🧹 Temizle</button>
+                                </div>
+                                <div id="pos-batch-items-list"></div>
+                            </div>
+
+                            <div style="margin-top: 10px;">
+                                <div style="font-size: 10px; color: ${theme.textLight}; margin-bottom: 4px;">📝 Veya Barkodu Yazın / El Tipi Okuyucu Kullanın:</div>
+                                <input type="text" id="pos-barcode-input" placeholder="Barkod yazın ve Enter'e basın..." style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px;" onkeypress="handlePosBarcodInput(event)" />
+                            </div>
+                        </div>
+
+                        <!-- SCROLL EDİLEBİLİR ÜRÜN LİSTESİ BÖLÜMÜ (3-6 ÜRÜN GÖRÜNÜR, KAYDIRDIKÇA HEPSİ ÇIKAR) -->
+                        <div style="background: ${theme.card}; border: 1px solid ${theme.primary}25; border-radius: 10px; padding: 10px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid ${theme.primary}15;">
+                                <div style="font-size: 11px; font-weight: bold; color: ${theme.primary}; display: flex; align-items: center; gap: 6px;">
+                                    <span>📦 Kasa Ürün Kataloğu</span>
+                                    <span id="pos-product-count-badge" style="background: ${theme.primary}20; color: ${theme.primary}; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: bold;">${state.products.length} Ürün</span>
+                                </div>
+                                <div style="font-size: 9px; color: ${theme.textLight}; font-weight: 500;">
+                                    📜 Aşağı kaydırarak tüm ürünleri inceleyebilirsiniz
+                                </div>
+                            </div>
+
+                            <div class="pos-products-scroll-wrapper">
+                                <div id="products-list" class="pos-products-grid"></div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="cam-toolbar">
-                        <button id="pos-batch-btn" onclick="toggleBatchScanMode('pos-batch-btn', 'pos')" class="cam-btn" style="background: ${theme.card};">⚡ Seri Okuma: KAPALI</button>
-                        <button id="pos-torch-btn" onclick="toggleCameraTorch('pos-torch-btn')" class="cam-btn" style="background: ${theme.card};">💡 Fener</button>
-                        <button onclick="cycleCameraDevice('pos')" class="cam-btn" style="background: ${theme.card};">🔄 Kamera Değiştir</button>
-                        <button id="pos-contrast-btn" onclick="toggleContrastEnhancement('pos-contrast-btn')" class="cam-btn" style="background: ${theme.card};">🔍 Kontrast</button>
-                        <label class="cam-btn" style="cursor: pointer; display: inline-flex; justify-content: center; align-items: center;">
-                            🖼️ Resim Seç
-                            <input type="file" accept="image/*" onchange="handleGalleryImageUpload(event, handlePosScannedCode, document.getElementById('pos-camera-result'))" style="display: none;" />
-                        </label>
-                    </div>
-
-                    <div id="pos-camera-result" class="camera-result" style="background: ${theme.background}; color: ${theme.textLight};">📸 Barkod veya QR kodu kırmızı çizgiye hizalayın...</div>
-
-                    <div id="pos-batch-log-container" class="batch-log-box hidden">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                            <div style="font-weight: bold; font-size: 11px; color: ${theme.primary}">📋 Seri Okunanlar (<span id="pos-batch-count-badge">0</span> Ürün)</div>
-                            <button onclick="clearBatchScanLog('pos')" style="padding: 2px 6px; background: ${theme.error}20; color: ${theme.error}; border: 1px solid ${theme.error}; border-radius: 3px; cursor: pointer; font-size: 9px; font-weight: bold;">🧹 Temizle</button>
+                    <!-- SAĞ TARAF / ALT: SEPET VE SATIŞ BİTİRME -->
+                    <div class="pos-right-section" style="background: ${theme.card}; border-top: 3px solid ${theme.primary}; padding: 12px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+                        <div style="font-weight: bold; color: ${theme.primary}; margin-bottom: 8px; font-size: 13px; display: flex; justify-content: space-between; align-items: center;">
+                            <span>🛒 Sepetim</span>
+                            <span style="font-size: 10px; background: ${theme.primary}20; color: ${theme.primary}; padding: 2px 8px; border-radius: 10px; font-weight: bold;">${state.cart.length} Kalem</span>
                         </div>
-                        <div id="pos-batch-items-list"></div>
-                    </div>
 
-                    <div style="margin-top: 10px;">
-                        <div style="font-size: 10px; color: ${theme.textLight}; margin-bottom: 4px;">📝 Veya Barkodu Yazın / El Tipi Okuyucu Kullanın:</div>
-                        <input type="text" id="pos-barcode-input" placeholder="Barkod yazın ve Enter'e basın..." style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px;" onkeypress="handlePosBarcodInput(event)" />
-                    </div>
-                </div>
+                        <div id="cart-items" style="max-height: 260px; overflow-y: auto; padding-right: 2px;"></div>
 
-                <div id="products-list" class="grid-3"></div>
-
-                <hr style="margin: 12px 0; border-color: ${theme.textLight};">
-
-                <div style="border-top: 3px solid ${theme.primary}; padding-top: 12px;">
-                    <div style="font-weight: bold; color: ${theme.primary}; margin-bottom: 8px;">🛒 Sepet (${state.cart.length})</div>
-                    <div id="cart-items"></div>
-                    <div class="grid-2" style="margin-top: 12px;">
-                        <div style="background: ${theme.card}; padding: 8px; border-radius: 4px; text-align: center;">
-                            <div style="font-size: 9px; color: ${theme.textLight};">Toplam</div>
-                            <div style="font-size: 16px; font-weight: bold; color: ${theme.success};">${state.cart.reduce((s, a) => s + (a.sellPrice * a.qty), 0).toFixed(0)}₺</div>
+                        <div style="background: ${theme.background}; padding: 10px; border-radius: 8px; margin-top: 10px; border: 1px solid ${theme.primary}20;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div style="font-size: 11px; color: ${theme.textLight}; font-weight: bold;">Ödenecek Toplam:</div>
+                                <div style="font-size: 20px; font-weight: 900; color: ${theme.success};">${state.cart.reduce((s, a) => s + (a.sellPrice * a.qty), 0).toFixed(0)} ₺</div>
+                            </div>
+                            <button onclick="clearCart()" style="width: 100%; margin-top: 6px; padding: 5px; background: ${theme.error}15; color: ${theme.error}; border: 1px solid ${theme.error}40; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 10px;">🧹 Sepeti Temizle</button>
                         </div>
-                        <div>
-                            <button onclick="clearCart()" style="width: 100%; padding: 6px; background: ${theme.error}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px;">Temizle</button>
+
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px;">
+                            <button onclick="checkoutPos('cash')" style="padding: 10px 4px; background: ${theme.success}; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 11px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;">
+                                <span>💵 Nakit</span>
+                                <span style="font-size: 8px; opacity: 0.9;">Hızlı Öde</span>
+                            </button>
+                            <button onclick="checkoutPos('card')" style="padding: 10px 4px; background: ${theme.info}; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 11px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;">
+                                <span>💳 Kart</span>
+                                <span style="font-size: 8px; opacity: 0.9;">POS Cihazı</span>
+                            </button>
+                            <button onclick="checkoutPos('credit')" style="padding: 10px 4px; background: ${theme.warning}; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 11px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;">
+                                <span>📅 Kredi</span>
+                                <span style="font-size: 8px; opacity: 0.9;">Cari Veresiye</span>
+                            </button>
                         </div>
-                    </div>
-                    <div class="grid-3" style="margin-top: 8px; gap: 6px;">
-                        <button onclick="checkoutPos('cash')" style="padding: 10px 4px; background: ${theme.success}; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px;">💵 Nakit</button>
-                        <button onclick="checkoutPos('card')" style="padding: 10px 4px; background: ${theme.info}; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px;">💳 Kart</button>
-                        <button onclick="checkoutPos('credit')" style="padding: 10px 4px; background: ${theme.warning}; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px;">📅 Kredi</button>
                     </div>
                 </div>
             `;
+
+            // Ürün kartı render yardımcısı
+            function renderPosCard(p) {
+                let imageHtml;
+                if (p.image64 && p.image64.startsWith('data:image')) {
+                    imageHtml = `<img src="${p.image64}" style="width: 34px; height: 34px; border-radius: 4px; object-fit: cover; display: inline-block;" />`;
+                } else {
+                    imageHtml = `<div style="font-size: 18px; line-height: 1;">${p.emoji || '📌'}</div>`;
+                }
+                const isZeroStock = (p.shop || 0) <= 0 && (p.warehouse || 0) <= 0;
+                return `
+                    <div class="pos-product-card" style="${isZeroStock ? 'opacity: 0.6;' : ''}" onclick="addToCart(${p.id})">
+                        <div style="margin-bottom: 4px; display: flex; justify-content: center; align-items: center; height: 34px;">${imageHtml}</div>
+                        <div style="font-size: 10px; font-weight: bold; color: ${theme.primary}; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; min-height: 24px;">${p.name}</div>
+                        <div style="font-size: 11px; color: ${theme.success}; font-weight: bold; margin-top: 2px;">${p.sellPrice}₺</div>
+                        <div style="font-size: 8px; color: ${theme.textLight}; margin-top: 2px;">D: <strong>${p.shop || 0}</strong> | Depo: <strong>${p.warehouse || 0}</strong></div>
+                    </div>
+                `;
+            }
 
             // Render ürünler
             const list = document.getElementById('products-list');
-            list.innerHTML = state.products.map(p => {
-                let imageHtml;
-                if (p.image64 && p.image64.startsWith('data:image')) {
-                    imageHtml = `<img src="${p.image64}" style="width: 40px; height: 40px; border-radius: 4px; object-fit: cover; display: inline-block;" />`;
-                } else {
-                    imageHtml = `<div style="font-size: 20px;">${p.emoji || '📌'}</div>`;
-                }
-                return `
-                <div style="background: ${theme.card}; padding: 8px; border-radius: 6px; cursor: pointer; text-align: center;" onclick="addToCart(${p.id})">
-                    <div style="margin-bottom: 4px; display: flex; justify-content: center; align-items: center; height: 40px;">${imageHtml}</div>
-                    <div style="font-size: 10px; font-weight: bold; color: ${theme.primary};">${p.name}</div>
-                    <div style="font-size: 11px; color: ${theme.success}; font-weight: bold;">${p.sellPrice}₺</div>
-                    <div style="font-size: 9px; color: ${theme.textLight};">D: ${p.shop} | Depo: ${p.warehouse}</div>
-                </div>
-            `;
-            }).join('');
+            list.innerHTML = state.products.map(renderPosCard).join('');
 
             // Render sepet
             const cart = document.getElementById('cart-items');
@@ -1656,28 +1840,20 @@
             };
 
             document.getElementById('search').oninput = (e) => {
-                const query = e.target.value.toLowerCase();
+                const query = e.target.value.toLowerCase().trim();
                 const filtered = state.products.filter(p => 
                     p.name.toLowerCase().includes(query) || 
-                    p.barcode.includes(query) ||
+                    (p.barcode && p.barcode.toLowerCase().includes(query)) ||
                     (p.sku || '').toLowerCase().includes(query)
                 );
-                list.innerHTML = filtered.map(p => {
-                    let imageHtml;
-                    if (p.image64 && p.image64.startsWith('data:image')) {
-                        imageHtml = `<img src="${p.image64}" style="width: 40px; height: 40px; border-radius: 4px; object-fit: cover; display: inline-block;" />`;
-                    } else {
-                        imageHtml = `<div style="font-size: 20px;">${p.emoji || '📌'}</div>`;
-                    }
-                    return `
-                    <div style="background: ${theme.card}; padding: 8px; border-radius: 6px; cursor: pointer; text-align: center;" onclick="addToCart(${p.id})">
-                        <div style="margin-bottom: 4px; display: flex; justify-content: center; align-items: center; height: 40px;">${imageHtml}</div>
-                        <div style="font-size: 10px; font-weight: bold; color: ${theme.primary};">${p.name}</div>
-                        <div style="font-size: 11px; color: ${theme.success}; font-weight: bold;">${p.sellPrice}₺</div>
-                        <div style="font-size: 9px; color: ${theme.textLight};">D: ${p.shop} | Depo: ${p.warehouse}</div>
-                    </div>
-                `;
-                }).join('');
+                const badge = document.getElementById('pos-product-count-badge');
+                if (badge) badge.textContent = `${filtered.length} Ürün`;
+
+                if (filtered.length > 0) {
+                    list.innerHTML = filtered.map(renderPosCard).join('');
+                } else {
+                    list.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: ${theme.textLight}; padding: 25px 10px; font-size: 11px;">🔍 Aramanıza uygun ürün bulunamadı.</div>`;
+                }
             };
 
             document.getElementById('barcode-input').onkeypress = (e) => {
@@ -5150,56 +5326,152 @@
 
             // TAB 3: BACKGROUND & WALLPAPER
             function renderBackgroundTab(container) {
+                const currentType = theme.bgVideo ? 'video' : (theme.bgImage && !theme.bgImage.startsWith('data:image/svg') ? 'image' : 'pattern');
+
                 container.innerHTML = `
                     <div class="card" style="border-left: 3px solid ${theme.primary};">
-                        <div style="font-size: 12px; font-weight: bold; color: ${theme.primary}; margin-bottom: 12px;">🖼️ Arka Plan Duvar Kağıdı ve Doku Ayarları</div>
+                        <div style="font-size: 13px; font-weight: 900; color: ${theme.primary}; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+                            <span>🖼️ Arka Plan Görseli & 🎥 Sürekli Tekrar Eden Video</span>
+                            <span style="font-size: 9px; padding: 2px 8px; border-radius: 12px; background: ${theme.primary}20; color: ${theme.primary}; font-weight: bold;">
+                                ${theme.bgVideo ? '🎥 Aktif: Video' : (theme.bgImage ? '🖼️ Aktif: Görsel/Foto' : '✨ Aktif: Desen/Düz')}
+                            </span>
+                        </div>
 
-                        <!-- CİHAZDAN GÖRSEL YÜKLEME -->
-                        <div style="margin-bottom: 12px; padding: 10px; background: ${theme.background}; border-radius: 6px; border: 1px dashed ${theme.primary};">
-                            <div style="font-weight: bold; font-size: 11px; color: ${theme.primary}; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
-                                📤 Cihazınızdan Arka Plan Fotoğrafı Yükleyin
-                            </div>
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                <button onclick="document.getElementById('ctrl-bg-file').click()" style="flex: 1; padding: 8px; background: ${theme.primary}; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;">
-                                    🖼️ Fotoğraf Seç / Yükle
-                                </button>
-                                <input type="file" id="ctrl-bg-file" accept="image/*" class="hidden" onchange="handleBgFileUpload(event)" />
-                                ${theme.bgImage ? `
-                                    <button onclick="clearCustomBgImage()" style="padding: 8px 12px; background: ${theme.error}20; color: ${theme.error}; border: 1px solid ${theme.error}; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;">
-                                        🗑️ Kaldır
+                        <!-- ARKA PLAN TİPİ SEÇİMİ -->
+                        <div style="display: flex; gap: 6px; margin-bottom: 14px; background: ${theme.background}; padding: 4px; border-radius: 8px; border: 1px solid ${theme.primary}30;">
+                            <button onclick="setBgType('video')" style="flex: 1; padding: 8px; border: none; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold; background: ${currentType === 'video' ? theme.primary : 'transparent'}; color: ${currentType === 'video' ? '#fff' : theme.text}; transition: all 0.2s;">
+                                🎥 Canlı Video (Loop)
+                            </button>
+                            <button onclick="setBgType('image')" style="flex: 1; padding: 8px; border: none; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold; background: ${currentType === 'image' ? theme.primary : 'transparent'}; color: ${currentType === 'image' ? '#fff' : theme.text}; transition: all 0.2s;">
+                                🖼️ Resim / Fotoğraf
+                            </button>
+                            <button onclick="setBgType('pattern')" style="flex: 1; padding: 8px; border: none; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold; background: ${currentType === 'pattern' ? theme.primary : 'transparent'}; color: ${currentType === 'pattern' ? '#fff' : theme.text}; transition: all 0.2s;">
+                                ✨ Doku / Desen
+                            </button>
+                        </div>
+
+                        <!-- 1. SÜREKLİ TEKRAR EDEN VİDEO BÖLÜMÜ -->
+                        <div id="section-bg-video" style="display: ${currentType === 'video' ? 'block' : 'none'};">
+                            <!-- Video Dosya Yükleme -->
+                            <div style="margin-bottom: 12px; padding: 12px; background: ${theme.background}; border-radius: 8px; border: 1px dashed ${theme.primary};">
+                                <div style="font-weight: bold; font-size: 11px; color: ${theme.primary}; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;">
+                                    <span>📤 Cihazınızdan Video Yükleyin (.mp4, .webm)</span>
+                                    <span style="font-size: 9px; opacity: 0.8;">Sürekli Döngü Oynatılır</span>
+                                </div>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <button onclick="document.getElementById('ctrl-bg-video-file').click()" style="flex: 1; padding: 10px; background: linear-gradient(135deg, ${theme.primary}, ${theme.secondary || theme.primary}); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                        🎬 Cihazdan Video Seç
                                     </button>
-                                ` : ''}
+                                    <input type="file" id="ctrl-bg-video-file" accept="video/mp4,video/webm,video/*" class="hidden" onchange="handleBgVideoFileUpload(event)" />
+                                    ${theme.bgVideo ? `
+                                        <button onclick="clearCustomBgVideo()" style="padding: 10px 14px; background: ${theme.error}20; color: ${theme.error}; border: 1px solid ${theme.error}; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold;">
+                                            🗑️ Videoyu Kaldır
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            </div>
+
+                            <!-- Video URL Girme -->
+                            <div style="margin-bottom: 12px; padding: 12px; background: ${theme.background}; border-radius: 8px; border: 1px solid ${theme.primary}30;">
+                                <label style="font-size: 10px; font-weight: bold; color: ${theme.primary}; display: block; margin-bottom: 6px;">🔗 İnternetten Video Bağlantısı (URL)</label>
+                                <div style="display: flex; gap: 6px;">
+                                    <input type="text" id="ctrl-bg-video-url-input" placeholder="https://ornek.com/video.mp4" value="${theme.bgVideo && !theme.bgVideo.startsWith('blob:') && !theme.bgVideo.startsWith('data:') ? theme.bgVideo : ''}" style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid ${theme.primary}; font-size: 11px;" />
+                                    <button onclick="setBgVideoFromUrlInput()" style="padding: 8px 14px; background: ${theme.primary}; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: bold;">
+                                        Uygula
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Hazır Örnek Döngü Videoları -->
+                            <div style="margin-bottom: 12px;">
+                                <label style="font-size: 10px; font-weight: bold; color: ${theme.text}; display: block; margin-bottom: 6px;">🌟 Hazır Döngü (Loop) Videoları</label>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px;">
+                                    <button onclick="setBgVideoUrl('https://assets.mixkit.co/videos/preview/mixkit-cat-resting-in-a-yellow-armchair-42864-large.mp4')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.primary}40; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold; text-align: left;">🐱 Sevimli Kedi</button>
+                                    <button onclick="setBgVideoUrl('https://assets.mixkit.co/videos/preview/mixkit-dog-running-in-the-grass-43094-large.mp4')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.primary}40; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold; text-align: left;">🐶 Neşeli Köpek</button>
+                                    <button onclick="setBgVideoUrl('https://assets.mixkit.co/videos/preview/mixkit-waves-in-the-water-1164-large.mp4')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.primary}40; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold; text-align: left;">🌊 Mavi Dalga</button>
+                                    <button onclick="setBgVideoUrl('https://assets.mixkit.co/videos/preview/mixkit-stars-in-space-1610-large.mp4')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.primary}40; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold; text-align: left;">🌌 Gece Galaksi</button>
+                                    <button onclick="setBgVideoUrl('https://assets.mixkit.co/videos/preview/mixkit-fish-swimming-in-a-clear-aquarium-43188-large.mp4')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.primary}40; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold; text-align: left;">🐠 Akvaryum</button>
+                                    <button onclick="setBgVideoUrl('https://assets.mixkit.co/videos/preview/mixkit-forest-stream-in-the-sunlight-529-large.mp4')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.primary}40; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold; text-align: left;">🌿 Yeşil Doğa</button>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- HAZIR PATTERN VE DESENLER -->
-                        <div style="margin-bottom: 12px;">
-                            <label style="font-size: 10px; font-weight: bold; color: ${theme.text}; display: block; margin-bottom: 6px;">✨ Hazır Arka Plan Desenleri & Dokular</label>
-                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
-                                <button onclick="setPresetPattern('paw')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.primary}40; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold;">🐾 Pati Deseni</button>
-                                <button onclick="setPresetPattern('grid')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.primary}40; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold;">📐 Izgara</button>
-                                <button onclick="setPresetPattern('mesh')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.primary}40; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold;">🌌 Uzay Noktaları</button>
-                                <button onclick="setPresetPattern('wood')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.primary}40; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold;">🌲 Ahşap Doku</button>
-                                <button onclick="setPresetPattern('floral')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.primary}40; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold;">🌸 Çiçek Benekli</button>
-                                <button onclick="setPresetPattern('none')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.error}40; color: ${theme.error}; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold;">🚫 Desensiz</button>
+                        <!-- 2. RESİM / FOTOĞRAF BÖLÜMÜ -->
+                        <div id="section-bg-image" style="display: ${currentType === 'image' ? 'block' : 'none'};">
+                            <!-- Cihazdan Görsel Yükleme -->
+                            <div style="margin-bottom: 12px; padding: 12px; background: ${theme.background}; border-radius: 8px; border: 1px dashed ${theme.primary};">
+                                <div style="font-weight: bold; font-size: 11px; color: ${theme.primary}; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;">
+                                    <span>📤 Cihazınızdan Görsel Yükleyin</span>
+                                    <span style="font-size: 9px; opacity: 0.8;">JPG, PNG, WebP</span>
+                                </div>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <button onclick="document.getElementById('ctrl-bg-file').click()" style="flex: 1; padding: 10px; background: ${theme.primary}; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: bold;">
+                                        🖼️ Fotoğraf Seç / Yükle
+                                    </button>
+                                    <input type="file" id="ctrl-bg-file" accept="image/*" class="hidden" onchange="handleBgFileUpload(event)" />
+                                    ${theme.bgImage ? `
+                                        <button onclick="clearCustomBgImage()" style="padding: 10px 14px; background: ${theme.error}20; color: ${theme.error}; border: 1px solid ${theme.error}; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold;">
+                                            🗑️ Resmi Kaldır
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            </div>
+
+                            <!-- Görsel URL Girme -->
+                            <div style="margin-bottom: 12px; padding: 12px; background: ${theme.background}; border-radius: 8px; border: 1px solid ${theme.primary}30;">
+                                <label style="font-size: 10px; font-weight: bold; color: ${theme.primary}; display: block; margin-bottom: 6px;">🔗 Görsel Bağlantısı (URL)</label>
+                                <div style="display: flex; gap: 6px;">
+                                    <input type="text" id="ctrl-bg-image-url-input" placeholder="https://images.unsplash.com/photo-..." value="${theme.bgImage && !theme.bgImage.startsWith('data:') ? theme.bgImage : ''}" style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid ${theme.primary}; font-size: 11px;" />
+                                    <button onclick="setBgImageFromUrlInput()" style="padding: 8px 14px; background: ${theme.primary}; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: bold;">
+                                        Uygula
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Hazır Duvar Kağıtları -->
+                            <div style="margin-bottom: 12px;">
+                                <label style="font-size: 10px; font-weight: bold; color: ${theme.text}; display: block; margin-bottom: 6px;">📸 Popüler Duvar Kağıtları</label>
+                                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;">
+                                    <button onclick="setBgImageUrl('https://images.unsplash.com/photo-1548767797-d8c844163c4c?auto=format&fit=crop&w=1200&q=80')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.primary}40; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold; text-align: left;">🐾 PetShop Pati</button>
+                                    <button onclick="setBgImageUrl('https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1200&q=80')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.primary}40; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold; text-align: left;">🌲 Doğa & Dağ</button>
+                                    <button onclick="setBgImageUrl('https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=1200&q=80')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.primary}40; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold; text-align: left;">🌌 Galaksi & Uzay</button>
+                                    <button onclick="setBgImageUrl('https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.primary}40; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold; text-align: left;">👑 Lüks Karanlık</button>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- OPAKLIK VE BLUR SLIDERLARI -->
-                        <div style="margin-bottom: 8px;">
-                            <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: bold; margin-bottom: 2px;">
-                                <span>Doku / Görsel Opaklığı (Şeffaflık)</span>
-                                <span id="bg-opacity-val">${Math.round((theme.bgOpacity !== undefined ? theme.bgOpacity : 0.2) * 100)}%</span>
+                        <!-- 3. DESEN VE DOKULAR BÖLÜMÜ -->
+                        <div id="section-bg-pattern" style="display: ${currentType === 'pattern' ? 'block' : 'none'};">
+                            <div style="margin-bottom: 12px;">
+                                <label style="font-size: 10px; font-weight: bold; color: ${theme.text}; display: block; margin-bottom: 6px;">✨ Hazır Arka Plan Desenleri & Dokular</label>
+                                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+                                    <button onclick="setPresetPattern('paw')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.primary}40; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold;">🐾 Pati Deseni</button>
+                                    <button onclick="setPresetPattern('grid')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.primary}40; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold;">📐 Izgara</button>
+                                    <button onclick="setPresetPattern('mesh')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.primary}40; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold;">🌌 Uzay Noktaları</button>
+                                    <button onclick="setPresetPattern('wood')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.primary}40; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold;">🌲 Ahşap Doku</button>
+                                    <button onclick="setPresetPattern('floral')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.primary}40; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold;">🌸 Çiçek Benekli</button>
+                                    <button onclick="setPresetPattern('none')" style="padding: 8px; background: ${theme.background}; border: 1px solid ${theme.error}40; color: ${theme.error}; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: bold;">🚫 Desensiz</button>
+                                </div>
                             </div>
-                            <input type="range" id="ctrl-bg-opacity" min="0" max="1" step="0.05" value="${theme.bgOpacity !== undefined ? theme.bgOpacity : 0.2}" oninput="document.getElementById('bg-opacity-val').textContent=Math.round(this.value*100)+'%'; updateCustomThemeFromUI();" style="width: 100%;" />
                         </div>
 
-                        <div>
-                            <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: bold; margin-bottom: 2px;">
-                                <span>Görsel Bulanıklığı (Blur Etkisi)</span>
-                                <span id="bg-blur-val">${theme.bgBlur || 0}px</span>
+                        <!-- ORTAK AYARLAR: OPAKLIK VE BLUR SLIDERLARI -->
+                        <div style="padding-top: 10px; border-top: 1px solid ${theme.primary}20; margin-top: 10px;">
+                            <div style="margin-bottom: 10px;">
+                                <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: bold; margin-bottom: 2px;">
+                                    <span>🎚️ Arka Plan Opaklığı (Şeffaflık)</span>
+                                    <span id="bg-opacity-val">${Math.round((theme.bgOpacity !== undefined ? theme.bgOpacity : 0.25) * 100)}%</span>
+                                </div>
+                                <input type="range" id="ctrl-bg-opacity" min="0" max="1" step="0.05" value="${theme.bgOpacity !== undefined ? theme.bgOpacity : 0.25}" oninput="document.getElementById('bg-opacity-val').textContent=Math.round(this.value*100)+'%'; updateCustomThemeFromUI();" style="width: 100%;" />
                             </div>
-                            <input type="range" id="ctrl-bg-blur" min="0" max="20" step="1" value="${theme.bgBlur || 0}" oninput="document.getElementById('bg-blur-val').textContent=this.value+'px'; updateCustomThemeFromUI();" style="width: 100%;" />
+
+                            <div>
+                                <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: bold; margin-bottom: 2px;">
+                                    <span>Bulanıklık (Blur Etkisi)</span>
+                                    <span id="bg-blur-val">${theme.bgBlur || 0}px</span>
+                                </div>
+                                <input type="range" id="ctrl-bg-blur" min="0" max="20" step="1" value="${theme.bgBlur || 0}" oninput="document.getElementById('bg-blur-val').textContent=this.value+'px'; updateCustomThemeFromUI();" style="width: 100%;" />
+                            </div>
                         </div>
                     </div>
                 `;
@@ -5247,6 +5519,95 @@
             }
 
             // INTERACTION HELPERS
+            window.setBgType = function(type) {
+                if (type === 'video') {
+                    if (!theme.bgVideo) {
+                        theme.bgVideo = 'https://assets.mixkit.co/videos/preview/mixkit-cat-resting-in-a-yellow-armchair-42864-large.mp4';
+                    }
+                    theme.bgImage = '';
+                } else if (type === 'image') {
+                    theme.bgVideo = '';
+                    if (!theme.bgImage) {
+                        theme.bgImage = 'https://images.unsplash.com/photo-1548767797-d8c844163c4c?auto=format&fit=crop&w=1200&q=80';
+                    }
+                } else if (type === 'pattern') {
+                    theme.bgVideo = '';
+                    theme.bgImage = presetPatterns.paw;
+                }
+                applyThemeStyles();
+                window.switchThemeTab('background');
+                updateLivePreviewBox();
+            };
+
+            window.handleBgVideoFileUpload = function(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                if (file.size > 30 * 1024 * 1024) {
+                    alert('⚠️ Lütfen 30MB altında bir video dosyası seçin veya video URL adresi kullanın.');
+                    return;
+                }
+                const videoUrl = URL.createObjectURL(file);
+                theme.bgVideo = videoUrl;
+                theme.bgImage = '';
+                applyThemeStyles();
+                window.switchThemeTab('background');
+                updateLivePreviewBox();
+                alert('🎬 Sürekli tekrar eden video arka planı eklendi!');
+            };
+
+            window.setBgVideoFromUrlInput = function() {
+                const url = document.getElementById('ctrl-bg-video-url-input')?.value?.trim();
+                if (!url) {
+                    alert('Lütfen geçerli bir video URL adresi girin.');
+                    return;
+                }
+                theme.bgVideo = url;
+                theme.bgImage = '';
+                applyThemeStyles();
+                window.switchThemeTab('background');
+                updateLivePreviewBox();
+                alert('🎬 Video arka planı uygulandı!');
+            };
+
+            window.setBgVideoUrl = function(url) {
+                theme.bgVideo = url;
+                theme.bgImage = '';
+                applyThemeStyles();
+                window.switchThemeTab('background');
+                updateLivePreviewBox();
+                alert('🎬 Video arka planı uygulandı!');
+            };
+
+            window.clearCustomBgVideo = function() {
+                theme.bgVideo = '';
+                applyThemeStyles();
+                window.switchThemeTab('background');
+                updateLivePreviewBox();
+            };
+
+            window.setBgImageFromUrlInput = function() {
+                const url = document.getElementById('ctrl-bg-image-url-input')?.value?.trim();
+                if (!url) {
+                    alert('Lütfen geçerli bir resim URL adresi girin.');
+                    return;
+                }
+                theme.bgImage = url;
+                theme.bgVideo = '';
+                applyThemeStyles();
+                window.switchThemeTab('background');
+                updateLivePreviewBox();
+                alert('🖼️ Resim arka planı uygulandı!');
+            };
+
+            window.setBgImageUrl = function(url) {
+                theme.bgImage = url;
+                theme.bgVideo = '';
+                applyThemeStyles();
+                window.switchThemeTab('background');
+                updateLivePreviewBox();
+                alert('🖼️ Resim arka planı uygulandı!');
+            };
+
             window.selectPresetTheme = function(presetKey) {
                 if (!themes[presetKey]) return;
                 theme = Object.assign({}, themes[presetKey]);
@@ -5289,6 +5650,7 @@
 
             window.setPresetPattern = function(patternKey) {
                 theme.bgImage = presetPatterns[patternKey] || '';
+                theme.bgVideo = '';
                 applyThemeStyles();
                 updateLivePreviewBox();
             };
@@ -5302,7 +5664,7 @@
                     const img = new Image();
                     img.onload = function() {
                         const canvas = document.createElement('canvas');
-                        const maxDim = 1000;
+                        const maxDim = 1200;
                         let w = img.width;
                         let h = img.height;
                         if (w > maxDim || h > maxDim) {
@@ -5313,8 +5675,10 @@
                         canvas.height = h;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, w, h);
-                        theme.bgImage = canvas.toDataURL('image/jpeg', 0.8);
+                        theme.bgImage = canvas.toDataURL('image/jpeg', 0.85);
+                        theme.bgVideo = '';
                         applyThemeStyles();
+                        window.switchThemeTab('background');
                         updateLivePreviewBox();
                         alert('✅ Arka plan duvar kağıdı yüklendi!');
                     };
@@ -5326,6 +5690,7 @@
             window.clearCustomBgImage = function() {
                 theme.bgImage = '';
                 applyThemeStyles();
+                window.switchThemeTab('background');
                 updateLivePreviewBox();
             };
 
