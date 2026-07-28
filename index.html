@@ -126,6 +126,37 @@
 
         let theme = themes.purple;
 
+        function getAccountTheme(user) {
+            if (!user) return null;
+            const uKey = (user.username || user.name || 'user').toLowerCase().trim();
+            if (window.state && window.state.userThemes && window.state.userThemes[uKey]) {
+                return window.state.userThemes[uKey];
+            }
+            if (user.userTheme) {
+                return user.userTheme;
+            }
+            try {
+                const saved = localStorage.getItem('cagdas_user_theme_' + uKey);
+                if (saved) return JSON.parse(saved);
+            } catch(e) {}
+            return null;
+        }
+
+        function loadUserTheme(user) {
+            if (!user) {
+                theme = Object.assign({}, themes.purple);
+                applyThemeStyles();
+                return;
+            }
+            const accTheme = getAccountTheme(user);
+            if (accTheme) {
+                theme = Object.assign({}, accTheme);
+            } else {
+                theme = Object.assign({}, themes.purple);
+            }
+            applyThemeStyles();
+        }
+
         try {
             const savedCustomTheme = localStorage.getItem('cagdas_custom_theme');
             if (savedCustomTheme) {
@@ -757,8 +788,8 @@
             notifications: [],
             auditLog: [],
             users: [
-                { id: 1, name: 'admin', role: 'admin', password: 'admin123' },
-                { id: 2, name: 'kasa1', role: 'cashier', password: 'kasa123' }
+                { id: 1, username: 'admin', password: 'admin123', role: 'admin', name: 'Yönetici', email: 'admin@cagdas.com', phone: '05001234567', status: 'active' },
+                { id: 2, username: 'kasa1', password: 'kasa123', role: 'cashier', name: 'Kasa 1', email: 'kasa@cagdas.com', phone: '05002345678', status: 'active' }
             ]
         };
 
@@ -774,10 +805,25 @@
         });
         if (state.users.length === 0) {
             state.users = [
-                { id: 1, username: 'admin', password: 'admin123', role: 'admin', name: 'Yönetici', email: 'admin@cagdas.com', phone: '05001234567' },
-                { id: 2, username: 'kasa1', password: 'kasa123', role: 'cashier', name: 'Kasa', email: 'kasa@cagdas.com', phone: '05002345678' }
+                { id: 1, username: 'admin', password: 'admin123', role: 'admin', name: 'Yönetici', email: 'admin@cagdas.com', phone: '05001234567', status: 'active' },
+                { id: 2, username: 'kasa1', password: 'kasa123', role: 'cashier', name: 'Kasa 1', email: 'kasa@cagdas.com', phone: '05002345678', status: 'active' }
             ];
         }
+
+        // Kullanıcı nesnelerini standartlaştırma helper'ı
+        function normalizeUsersList() {
+            if (!Array.isArray(state.users)) state.users = [];
+            state.users.forEach((u, i) => {
+                if (!u.id) u.id = Date.now() + i;
+                if (!u.username) u.username = (u.name || ('user' + u.id)).toLowerCase().replace(/\s+/g, '');
+                if (!u.name) u.name = u.username;
+                if (!u.role) u.role = 'cashier';
+                if (!u.password) u.password = '123456';
+                if (!u.status) u.status = 'active';
+            });
+        }
+        window.normalizeUsersList = normalizeUsersList;
+        normalizeUsersList();
 
         // Aynı Alış ve Satış Fiyatına Sahip Stok Partilerini Birleştirme Helper'ı
         function mergeIdenticalStockLots(product) {
@@ -1016,6 +1062,9 @@
 
         // ========== RENDER ==========
         function render() {
+            if (state.user) {
+                loadUserTheme(state.user);
+            }
             const app = document.getElementById('app');
             if (!state.user) renderLogin();
             else renderApp();
@@ -1024,49 +1073,115 @@
         function renderLogin() {
             const app = document.getElementById('app');
             app.innerHTML = `
-                <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; background: ${theme.background}; padding: 20px;">
-                    <div style="font-size: 50px; margin-bottom: 20px;">🐾</div>
-                    <div style="max-width: 350px; width: 100%; background: ${theme.card}; padding: 20px; border-radius: 12px; border-top: 4px solid ${theme.primary};">
-                        <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 15px; color: ${theme.primary};">Çağdaş PetShop v4.2</h2>
-                        <input id="username" placeholder="Kullanıcı Adı" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid ${theme.primary}; margin-bottom: 10px; font-size: 14px;" />
-                        <input id="password" type="password" placeholder="Şifre" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid ${theme.primary}; margin-bottom: 15px; font-size: 14px;" onkeypress="if(event.key==='Enter') login()" />
-                        <button onclick="login()" style="width: 100%; padding: 10px; background: ${theme.primary}; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px;">Giriş</button>
-                        <div style="background: ${theme.primary}10; padding: 10px; border-radius: 6px; margin-top: 15px; font-size: 12px; color: ${theme.text};">
-                            <strong>Demo:</strong><br>👨‍💼 admin/admin123<br>💰 kasa1/kasa123
+                <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; background: ${theme.background}; padding: 20px; box-sizing: border-box;">
+                    <div style="font-size: 48px; margin-bottom: 12px;">🐾</div>
+                    <div style="max-width: 380px; width: 100%; background: ${theme.card}; padding: 24px; border-radius: 12px; border-top: 4px solid ${theme.primary}; box-shadow: 0 8px 24px rgba(0,0,0,0.12); color: ${theme.text}; border-left: 1px solid ${theme.primary}20; border-right: 1px solid ${theme.primary}20; border-bottom: 1px solid ${theme.primary}20;">
+                        <div style="text-align: center; margin-bottom: 20px;">
+                            <h2 style="font-size: 20px; font-weight: bold; margin: 0 0 4px 0; color: ${theme.primary};">Çağdaş PetShop v4.2</h2>
+                            <div style="font-size: 11px; color: ${theme.textLight}; font-weight: 500;">Kasa & Yönetim Otomasyonu</div>
+                        </div>
+
+                        <div id="login-error-alert" style="display: none; background: ${theme.error}15; border: 1px solid ${theme.error}; color: ${theme.error}; padding: 10px; border-radius: 6px; font-size: 11px; font-weight: bold; margin-bottom: 14px; text-align: center;"></div>
+
+                        <div style="margin-bottom: 12px;">
+                            <label style="font-size: 10px; font-weight: bold; color: ${theme.primary}; display: block; margin-bottom: 4px;">👤 Kullanıcı Adı veya E-Posta</label>
+                            <input id="username" placeholder="Kullanıcı adı (örn: admin / kasa1)" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid ${theme.primary}50; font-size: 13px; background: ${theme.background}; color: ${theme.text}; box-sizing: border-box;" onkeypress="if(event.key==='Enter') document.getElementById('password').focus()" />
+                        </div>
+
+                        <div style="margin-bottom: 16px;">
+                            <label style="font-size: 10px; font-weight: bold; color: ${theme.primary}; display: block; margin-bottom: 4px;">🔑 Şifre</label>
+                            <div style="position: relative;">
+                                <input id="password" type="password" placeholder="Şifreniz" style="width: 100%; padding: 10px 38px 10px 10px; border-radius: 6px; border: 1px solid ${theme.primary}50; font-size: 13px; background: ${theme.background}; color: ${theme.text}; box-sizing: border-box;" onkeypress="if(event.key==='Enter') login()" />
+                                <button type="button" onclick="togglePassView()" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 14px; opacity: 0.7;">👁️</button>
+                            </div>
+                        </div>
+
+                        <button onclick="login()" style="width: 100%; padding: 11px; background: ${theme.primary}; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; transition: opacity 0.2s; box-shadow: 0 4px 10px ${theme.primary}30;">
+                            🔓 Giriş Yap
+                        </button>
+
+                        <div style="background: ${theme.primary}10; padding: 10px; border-radius: 6px; margin-top: 16px; font-size: 11px; color: ${theme.text}; border: 1px dashed ${theme.primary}30;">
+                            <div style="font-weight: bold; color: ${theme.primary}; margin-bottom: 6px;">⚡ Hızlı Test / Demo Girişleri:</div>
+                            <div style="display: flex; gap: 6px;">
+                                <button onclick="quickFillLogin('admin', 'admin123')" style="flex: 1; padding: 6px; background: ${theme.primary}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 10px;">
+                                    🔑 Yönetici (admin)
+                                </button>
+                                <button onclick="quickFillLogin('kasa1', 'kasa123')" style="flex: 1; padding: 6px; background: ${theme.warning}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 10px;">
+                                    💰 Kasiyer (kasa1)
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
             `;
+
+            window.togglePassView = function() {
+                const pInput = document.getElementById('password');
+                if (pInput) pInput.type = pInput.type === 'password' ? 'text' : 'password';
+            };
+
+            window.quickFillLogin = function(u, p) {
+                document.getElementById('username').value = u;
+                document.getElementById('password').value = p;
+                window.login();
+            };
+
             window.login = function() {
-                const u = document.getElementById('username').value;
-                const p = document.getElementById('password').value;
-                const user = state.users.find(x => x.name === u && x.password === p);
+                const uVal = (document.getElementById('username')?.value || '').trim().toLowerCase();
+                const pVal = (document.getElementById('password')?.value || '').trim();
+                const alertEl = document.getElementById('login-error-alert');
+
+                if (!uVal) {
+                    if (alertEl) { alertEl.textContent = '⚠️ Lütfen kullanıcı adı girin!'; alertEl.style.display = 'block'; }
+                    return;
+                }
+                if (!pVal) {
+                    if (alertEl) { alertEl.textContent = '⚠️ Lütfen şifre girin!'; alertEl.style.display = 'block'; }
+                    return;
+                }
+
+                if (typeof normalizeUsersList === 'function') normalizeUsersList();
+
+                const user = state.users.find(x => {
+                    const uname = (x.username || '').trim().toLowerCase();
+                    const dname = (x.name || '').trim().toLowerCase();
+                    const email = (x.email || '').trim().toLowerCase();
+                    const matchesUser = (uname && uname === uVal) || (dname && dname === uVal) || (email && email === uVal);
+                    return matchesUser && String(x.password).trim() === pVal;
+                });
+
                 if (user) {
+                    if (user.status === 'passive') {
+                        if (alertEl) { alertEl.textContent = '❌ Bu kullanıcı hesabı pasife alınmıştır!'; alertEl.style.display = 'block'; }
+                        return;
+                    }
                     state.user = user;
+                    loadUserTheme(user);
+                    saveData();
                     try {
                         render();
                     } catch (err) {
-                        console.error(err);
+                        console.error("Login render error:", err);
                         state.user = null;
-                        alert('⚠️ Giriş sırasında bir hata oluştu, tekrar deneyin.');
-                        renderLogin();
+                        if (alertEl) { alertEl.textContent = '⚠️ Giriş yapılırken bir hata oluştu!'; alertEl.style.display = 'block'; }
                     }
                 } else {
-                    alert('❌ Yanlış!');
+                    if (alertEl) { alertEl.textContent = '❌ Kullanıcı adı veya şifre yanlış!'; alertEl.style.display = 'block'; }
                 }
             };
         }
 
         function renderApp() {
-            const navItems = state.user.role === 'admin' 
+            const isAdmin = state.user && state.user.role === 'admin';
+            const navItems = isAdmin 
                 ? ['dashboard','pos','inventory','customers','suppliers','expenses','returns','debts','charts','period','stock','cash','users','categories','profit','daily','audit','notifications','theme','qr','barcode','image','backup','logout']
-                : ['dashboard','pos','debts','logout'];
+                : ['dashboard','pos','customers','returns','theme','logout'];
 
             const navIcons = { dashboard: '🏠', pos: '💳', inventory: '📦', customers: '👥', suppliers: '🚚', expenses: '💸', returns: '↩️', debts: '💰', charts: '📊', period: '📋', stock: '📋', cash: '🏧', users: '👤', categories: '📂', profit: '💵', daily: '📊', audit: '📝', notifications: '🔔', theme: '🎨', qr: '🔳', barcode: '📦', image: '📸', backup: '💾', logout: '🚪' };
             const navNames = { dashboard: 'Panel', pos: 'Kasa', inventory: 'Envanter', customers: 'Müşteri', suppliers: 'Tedarikçi', expenses: 'Gider', returns: 'İade', debts: 'Borç', charts: 'Grafik', period: 'Dönem', stock: 'Stok', cash: 'Kasa', users: 'Kullanıcı', categories: 'Kategoriler', profit: 'Mali Raporlar', daily: 'Gün Sonu', audit: 'İşlem Geçmişi', notifications: 'Bildir', theme: 'Tema', qr: 'QR', barcode: 'Barcode', image: 'Foto', backup: 'Yedek', logout: 'Çıkış' };
             
             // Menü grupları
-            const navGroups = state.user.role === 'admin' 
+            const navGroups = isAdmin 
                 ? {
                     'TEMEL': ['dashboard', 'pos'],
                     'ENVANTER': ['inventory', 'categories', 'stock'],
@@ -1078,7 +1193,8 @@
                 }
                 : {
                     'TEMEL': ['dashboard', 'pos'],
-                    'DİĞER': ['debts'],
+                    'İŞLETME': ['customers', 'returns'],
+                    'ARAÇLAR': ['theme'],
                     'ÇIKIŞ': ['logout']
                 };
 
@@ -1200,38 +1316,47 @@
         });
 
         function switchScreen(screen) {
-            if (screen === 'logout') { state.user = null; render(); } else { state.screen = screen; render(); }
+            if (screen === 'logout') {
+                state.user = null;
+                theme = Object.assign({}, themes.purple);
+                applyThemeStyles();
+                render();
+            } else {
+                state.screen = screen;
+                render();
+            }
         }
 
         function renderScreen() {
             const screen = document.getElementById('screen');
             const charts = () => state.sales.length > 0;
+            const isAdmin = state.user && state.user.role === 'admin';
 
             try {
                 switch(state.screen) {
                     case 'dashboard': renderDashboard(screen); break;
                     case 'pos': renderPOS(screen); break;
-                    case 'inventory': renderInventory(screen); break;
+                    case 'inventory': if(isAdmin) renderInventory(screen); else renderDashboard(screen); break;
                     case 'customers': renderCustomers(screen); break;
-                    case 'suppliers': renderSuppliers(screen); break;
-                    case 'expenses': renderExpenses(screen); break;
+                    case 'suppliers': if(isAdmin) renderSuppliers(screen); else renderDashboard(screen); break;
+                    case 'expenses': if(isAdmin) renderExpenses(screen); else renderDashboard(screen); break;
                     case 'returns': renderReturns(screen); break;
-                    case 'debts': renderDebts(screen); break;
-                    case 'charts': renderCharts(screen); break;
-                    case 'period': renderPeriod(screen); break;
-                    case 'stock': if(state.user.role === 'admin') renderStockLog(screen); else renderDashboard(screen); break;
-                    case 'cash': if(state.user.role === 'admin') renderCashManagement(screen); else renderDashboard(screen); break;
-                    case 'users': if(state.user.role === 'admin') renderUsers(screen); else renderDashboard(screen); break;
-                    case 'categories': if(state.user.role === 'admin') renderCategoryManagement(screen); else renderDashboard(screen); break;
-                    case 'profit': if(state.user.role === 'admin') renderMaliRaporlari(screen); else renderDashboard(screen); break;
-                    case 'daily': if(state.user.role === 'admin') renderDailySummary(screen); else renderDashboard(screen); break;
-                    case 'audit': if(state.user.role === 'admin') renderAuditLog(screen); else renderDashboard(screen); break;
-                    case 'notifications': if(state.user.role === 'admin') renderNotifications(screen); else renderDashboard(screen); break;
+                    case 'debts': if(isAdmin) renderDebts(screen); else renderDashboard(screen); break;
+                    case 'charts': if(isAdmin) renderCharts(screen); else renderDashboard(screen); break;
+                    case 'period': if(isAdmin) renderPeriod(screen); else renderDashboard(screen); break;
+                    case 'stock': if(isAdmin) renderStockLog(screen); else renderDashboard(screen); break;
+                    case 'cash': if(isAdmin) renderCashManagement(screen); else renderDashboard(screen); break;
+                    case 'users': if(isAdmin) renderUsers(screen); else renderDashboard(screen); break;
+                    case 'categories': if(isAdmin) renderCategoryManagement(screen); else renderDashboard(screen); break;
+                    case 'profit': if(isAdmin) renderMaliRaporlari(screen); else renderDashboard(screen); break;
+                    case 'daily': if(isAdmin) renderDailySummary(screen); else renderDashboard(screen); break;
+                    case 'audit': if(isAdmin) renderAuditLog(screen); else renderDashboard(screen); break;
+                    case 'notifications': if(isAdmin) renderNotifications(screen); else renderDashboard(screen); break;
                     case 'theme': renderTheme(screen); break;
-                    case 'qr': if(state.user.role === 'admin') renderQR(screen); else renderDashboard(screen); break;
-                    case 'barcode': if(state.user.role === 'admin') renderBarcode(screen); else renderDashboard(screen); break;
-                    case 'image': if(state.user.role === 'admin') renderImage(screen); else renderDashboard(screen); break;
-                    case 'backup': if(state.user.role === 'admin') renderBackup(screen); else renderDashboard(screen); break;
+                    case 'qr': if(isAdmin) renderQR(screen); else renderDashboard(screen); break;
+                    case 'barcode': if(isAdmin) renderBarcode(screen); else renderDashboard(screen); break;
+                    case 'image': if(isAdmin) renderImage(screen); else renderDashboard(screen); break;
+                    case 'backup': if(isAdmin) renderBackup(screen); else renderDashboard(screen); break;
                     default: state.screen = 'dashboard'; renderDashboard(screen);
                 }
             } catch (err) {
@@ -1279,6 +1404,7 @@
 
         // ========== DASHBOARD ==========
         function renderDashboard(screen) {
+            const isAdmin = state.user && state.user.role === 'admin';
             const totalSales = state.sales.reduce((s, a) => s + (a.total || 0), 0);
             const totalExpenses = state.expenses.reduce((s, a) => s + (a.amount || 0), 0);
             const returnedAmount = state.returns.reduce((s, a) => s + (a.amount || 0), 0);
@@ -1294,9 +1420,10 @@
             screen.innerHTML = `
                 <div class="grid-2" style="margin-bottom: 12px;">
                     <div class="card" style="border-left: 3px solid ${theme.success};">
-                        <div style="font-size: 10px; color: ${theme.textLight};">💰 Satış</div>
+                        <div style="font-size: 10px; color: ${theme.textLight};">💰 Toplam Satış</div>
                         <div style="font-size: 16px; font-weight: bold; color: ${theme.success}; margin-top: 4px;">${totalSales.toFixed(0)}₺</div>
                     </div>
+                    ${isAdmin ? `
                     <div class="card" style="border-left: 3px solid ${theme.error};">
                         <div style="font-size: 10px; color: ${theme.textLight};">💸 Gider</div>
                         <div style="font-size: 16px; font-weight: bold; color: ${theme.error}; margin-top: 4px;">${totalExpenses.toFixed(0)}₺</div>
@@ -1309,6 +1436,12 @@
                         <div style="font-size: 10px; color: ${theme.textLight};">💰 Borç</div>
                         <div style="font-size: 16px; font-weight: bold; color: ${theme.warning}; margin-top: 4px;">${totalDebt.toFixed(0)}₺</div>
                     </div>
+                    ` : `
+                    <div class="card" style="border-left: 3px solid ${theme.primary};">
+                        <div style="font-size: 10px; color: ${theme.textLight};">💳 Toplam Satış Adedi</div>
+                        <div style="font-size: 16px; font-weight: bold; color: ${theme.primary}; margin-top: 4px;">${state.sales.length} İşlem</div>
+                    </div>
+                    `}
                 </div>
 
                 <div class="grid-3" style="margin-bottom: 12px;">
@@ -1328,14 +1461,18 @@
                         <div style="font-size: 14px; font-weight: bold; color: ${theme.error};">${state.returns.length}</div>
                         <div style="font-size: 10px; color: ${theme.textLight};">↩️ İade</div>
                     </div>
+                    ${isAdmin ? `
                     <div class="card" style="border-top: 3px solid ${theme.success}; text-align: center;">
                         <div style="font-size: 14px; font-weight: bold; color: ${theme.success};">${state.expenses.length}</div>
                         <div style="font-size: 10px; color: ${theme.textLight};">💸 Gider</div>
                     </div>
+                    ` : ''}
+                    ${isAdmin ? `
                     <div class="card" style="border-top: 3px solid ${theme.primary}; text-align: center;">
                         <div style="font-size: 14px; font-weight: bold; color: ${theme.primary};">${state.suppliers.length}</div>
                         <div style="font-size: 10px; color: ${theme.textLight};">🚚 Tedarikçi</div>
                     </div>
+                    ` : ''}
                 </div>
 
                 <!-- KRİTİK STOK KARTI -->
@@ -2584,6 +2721,7 @@
                     const displaySellPrice = lastLot ? lastLot.sellPrice : p.sellPrice;
                     const limit = (p.criticalLimit !== undefined && p.criticalLimit !== null && !isNaN(p.criticalLimit)) ? Number(p.criticalLimit) : 5;
                     const isCritical = (p.shop || 0) <= limit;
+                    const isAdmin = state.user && state.user.role === 'admin';
                     
                     return `
                     <div style="background: ${theme.card}; padding: 10px; border-radius: 6px; border-left: 3px solid ${isCritical ? theme.error : theme.primary};">
@@ -2593,7 +2731,9 @@
                         </div>
                         <div style="font-size: 9px; color: ${theme.textLight};">📂 ${p.category}</div>
                         <div style="font-size: 9px; color: ${theme.textLight};">SKU: ${p.sku} | Barkod: ${p.barcode}</div>
-                        <div style="font-size: 9px; color: ${theme.success}; font-weight: bold;">💰 Güncel Alış: ${displayBuyPrice}₺ | Satış: ${displaySellPrice}₺</div>
+                        <div style="font-size: 9px; color: ${theme.success}; font-weight: bold;">
+                            ${isAdmin ? `💰 Güncel Alış: ${displayBuyPrice}₺ | Satış: ${displaySellPrice}₺` : `💰 Satış Fiyatı: ${displaySellPrice}₺`}
+                        </div>
                         <div style="font-size: 9px; color: ${theme.textLight};">Dükkan: <strong style="color: ${isCritical ? theme.error : theme.text};">${p.shop}</strong> Adet | Depo: ${p.warehouse} Adet | Eşik: <strong>${limit}</strong></div>
                         ${p.isBulkMama ? `
                             <div style="margin-top: 6px; padding: 6px; background: ${theme.primary}10; border-radius: 4px; border: 1px dashed ${theme.primary}; font-size: 9px;">
@@ -2616,7 +2756,9 @@
                                 ${p.stockLots.map((lot, lIdx) => `
                                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 2px 0; border-bottom: ${lIdx < p.stockLots.length - 1 ? '1px solid ' + theme.primary + '20' : 'none'};">
                                         <span>Parti #${lIdx + 1}: <strong style="color:${theme.primary}">${lot.quantity} Adet</strong> <span style="font-size:8px; color:${theme.textLight}">(${lot.date || 'İlk Stok'})</span></span>
-                                        <span style="color:${theme.success}; font-weight:bold;">Alış: ${lot.buyPrice}₺ | Satış: ${lot.sellPrice || p.sellPrice}₺</span>
+                                        <span style="color:${theme.success}; font-weight:bold;">
+                                            ${isAdmin ? `Alış: ${lot.buyPrice}₺ | Satış: ${lot.sellPrice || p.sellPrice}₺` : `Satış: ${lot.sellPrice || p.sellPrice}₺`}
+                                        </span>
                                     </div>
                                 `).join('')}
                             </div>
@@ -3938,59 +4080,428 @@
 
         // ========== KULLANICI YÖNETİMİ ==========
         function renderUsers(screen) {
+            let editingUserId = null;
+
             screen.innerHTML = `
-                <div style="margin-bottom: 12px;">
-                    <button onclick="toggleUserForm()" style="width: 100%; padding: 10px; background: ${theme.primary}; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px;">➕ Kullanıcı Ekle</button>
+                <!-- BAŞLIK VE METRİKLER -->
+                <div class="card" style="border-left: 4px solid ${theme.primary}; margin-bottom: 12px; background: linear-gradient(135deg, ${theme.card}, ${theme.background});">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                        <div>
+                            <div style="font-size: 14px; font-weight: 900; color: ${theme.primary}; display: flex; align-items: center; gap: 6px;">
+                                👤 Kullanıcı ve Yetki Yönetimi
+                            </div>
+                            <div style="font-size: 10px; color: ${theme.textLight}; margin-top: 2px;">
+                                Yönetici ve kasiyer hesaplarını oluşturun, düzenleyin veya şifrelerini değiştirin.
+                            </div>
+                        </div>
+                        <button onclick="showUserAddForm()" style="padding: 8px 14px; background: ${theme.success}; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 11px; display: flex; align-items: center; gap: 4px;">
+                            ➕ Yeni Kullanıcı Ekle
+                        </button>
+                    </div>
+
+                    <!-- ÖZET SAYAÇLARI -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px; margin-top: 12px;">
+                        <div style="background: ${theme.background}; padding: 8px; border-radius: 6px; text-align: center; border: 1px solid ${theme.primary}20;">
+                            <div style="font-size: 9px; color: ${theme.textLight};">Toplam Kullanıcı</div>
+                            <div style="font-size: 14px; font-weight: bold; color: ${theme.primary};">${state.users.length}</div>
+                        </div>
+                        <div style="background: ${theme.background}; padding: 8px; border-radius: 6px; text-align: center; border: 1px solid ${theme.primary}20;">
+                            <div style="font-size: 9px; color: ${theme.textLight};">🔑 Yöneticiler</div>
+                            <div style="font-size: 14px; font-weight: bold; color: ${theme.primary};">${state.users.filter(u => u.role === 'admin').length}</div>
+                        </div>
+                        <div style="background: ${theme.background}; padding: 8px; border-radius: 6px; text-align: center; border: 1px solid ${theme.warning}20;">
+                            <div style="font-size: 9px; color: ${theme.textLight};">💰 Kasiyerler</div>
+                            <div style="font-size: 14px; font-weight: bold; color: ${theme.warning};">${state.users.filter(u => u.role === 'cashier').length}</div>
+                        </div>
+                        <div style="background: ${theme.background}; padding: 8px; border-radius: 6px; text-align: center; border: 1px solid ${theme.success}20;">
+                            <div style="font-size: 9px; color: ${theme.textLight};">🟢 Aktif Hesaplar</div>
+                            <div style="font-size: 14px; font-weight: bold; color: ${theme.success};">${state.users.filter(u => u.status !== 'passive').length}</div>
+                        </div>
+                    </div>
                 </div>
 
-                <div id="user-form" class="hidden" style="background: ${theme.card}; padding: 12px; border-radius: 6px; margin-bottom: 12px; border-left: 3px solid ${theme.primary};">
-                    <input id="user-username" placeholder="Kullanıcı Adı" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; margin-bottom: 6px; font-size: 11px;" />
-                    <input id="user-password" placeholder="Şifre" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; margin-bottom: 6px; font-size: 11px;" />
-                    <input id="user-name" placeholder="Ad/Soyad" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; margin-bottom: 6px; font-size: 11px;" />
-                    <select id="user-role" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; margin-bottom: 8px; font-size: 11px;">
-                        <option value="cashier">💰 Kasa</option><option value="admin">🔑 Yönetici</option>
-                    </select>
-                    <button onclick="saveUser()" style="width: 100%; padding: 6px; background: ${theme.success}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px;">✅ Kaydet</button>
+                <!-- KULLANICI FORMU (EKLE / DÜZENLE) -->
+                <div id="user-form-card" class="card hidden" style="border-left: 4px solid ${theme.primary}; margin-bottom: 12px; background: ${theme.card};">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid ${theme.primary}20; padding-bottom: 6px;">
+                        <div id="user-form-title" style="font-size: 12px; font-weight: bold; color: ${theme.primary};">➕ Yeni Kullanıcı Oluştur</div>
+                        <button onclick="hideUserForm()" style="padding: 4px 8px; background: ${theme.error}15; color: ${theme.error}; border: none; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold;">✕ Kapat</button>
+                    </div>
+
+                    <input type="hidden" id="user-edit-id" value="" />
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 10px;">
+                        <div>
+                            <label style="font-size: 10px; font-weight: bold; color: ${theme.text}; display: block; margin-bottom: 4px;">👤 Kullanıcı Adı (Giriş Adı) *</label>
+                            <input id="user-username" placeholder="Örn: kasa2" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px; background: ${theme.background}; color: ${theme.text};" />
+                        </div>
+
+                        <div>
+                            <label style="font-size: 10px; font-weight: bold; color: ${theme.text}; display: block; margin-bottom: 4px;">🏷️ Ad / Soyad (Görünen İsim) *</label>
+                            <input id="user-name" placeholder="Örn: Ahmet Yılmaz" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px; background: ${theme.background}; color: ${theme.text};" />
+                        </div>
+
+                        <div>
+                            <label style="font-size: 10px; font-weight: bold; color: ${theme.text}; display: block; margin-bottom: 4px;">🔑 Şifre *</label>
+                            <input id="user-password" type="text" placeholder="Şifre" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px; background: ${theme.background}; color: ${theme.text};" />
+                        </div>
+
+                        <div>
+                            <label style="font-size: 10px; font-weight: bold; color: ${theme.text}; display: block; margin-bottom: 4px;">🛡️ Rol / Yetki Seviyesi *</label>
+                            <select id="user-role" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px; background: ${theme.background}; color: ${theme.text};">
+                                <option value="cashier">💰 Kasiyer (Sadece Kasa ve Borç Yetkisi)</option>
+                                <option value="admin">🔑 Yönetici (Tam Yetkili)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label style="font-size: 10px; font-weight: bold; color: ${theme.text}; display: block; margin-bottom: 4px;">⚙️ Hesap Durumu</label>
+                            <select id="user-status" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px; background: ${theme.background}; color: ${theme.text};">
+                                <option value="active">🟢 Aktif (Giriş Yapabilir)</option>
+                                <option value="passive">🔴 Pasif (Giriş Engellendi)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label style="font-size: 10px; font-weight: bold; color: ${theme.text}; display: block; margin-bottom: 4px;">📞 Telefon (Opsiyonel)</label>
+                            <input id="user-phone" placeholder="0500 000 0000" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px; background: ${theme.background}; color: ${theme.text};" />
+                        </div>
+
+                        <div>
+                            <label style="font-size: 10px; font-weight: bold; color: ${theme.text}; display: block; margin-bottom: 4px;">📧 E-Posta (Opsiyonel)</label>
+                            <input id="user-email" placeholder="ornek@domain.com" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px; background: ${theme.background}; color: ${theme.text};" />
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 8px; margin-top: 12px;">
+                        <button onclick="saveUserSubmit()" style="flex: 2; padding: 10px; background: ${theme.success}; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px;">
+                            ✅ Kullanıcıyı Kaydet
+                        </button>
+                        <button onclick="hideUserForm()" style="flex: 1; padding: 10px; background: ${theme.background}; color: ${theme.text}; border: 1px solid ${theme.primary}50; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px;">
+                            İptal
+                        </button>
+                    </div>
                 </div>
 
-                <div id="users-list"></div>
+                <!-- FİLTRELEME VE ARAMA -->
+                <div class="card" style="border-left: 4px solid ${theme.primary}; margin-bottom: 12px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px;">
+                        <div>
+                            <label style="font-size: 9px; font-weight: bold; color: ${theme.textLight};">🔍 Arama</label>
+                            <input id="user-search-query" placeholder="Kullanıcı adı, isim..." style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px; background: ${theme.background}; color: ${theme.text};" onkeyup="filterUsersList()" />
+                        </div>
+                        <div>
+                            <label style="font-size: 9px; font-weight: bold; color: ${theme.textLight};">🛡️ Rol Filtresi</label>
+                            <select id="user-filter-role" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px; background: ${theme.background}; color: ${theme.text};" onchange="filterUsersList()">
+                                <option value="">Tüm Rolleri Göster</option>
+                                <option value="admin">🔑 Yönetici</option>
+                                <option value="cashier">💰 Kasiyer</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 9px; font-weight: bold; color: ${theme.textLight};">⚙️ Durum Filtresi</label>
+                            <select id="user-filter-status" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 11px; background: ${theme.background}; color: ${theme.text};" onchange="filterUsersList()">
+                                <option value="">Tüm Durumlar</option>
+                                <option value="active">🟢 Aktif</option>
+                                <option value="passive">🔴 Pasif</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KULLANICI LİSTESİ -->
+                <div id="users-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px;"></div>
             `;
 
-            window.toggleUserForm = function() {
-                document.getElementById('user-form').classList.toggle('hidden');
+            window.showUserAddForm = function() {
+                editingUserId = null;
+                document.getElementById('user-form-card').classList.remove('hidden');
+                document.getElementById('user-form-title').textContent = '➕ Yeni Kullanıcı Oluştur';
+                document.getElementById('user-edit-id').value = '';
+                document.getElementById('user-username').value = '';
+                document.getElementById('user-name').value = '';
+                document.getElementById('user-password').value = '';
+                document.getElementById('user-role').value = 'cashier';
+                document.getElementById('user-status').value = 'active';
+                document.getElementById('user-phone').value = '';
+                document.getElementById('user-email').value = '';
+                document.getElementById('user-username').focus();
             };
 
-            window.saveUser = function() {
-                const u = {
-                    id: Date.now(),
-                    username: document.getElementById('user-username').value,
-                    password: document.getElementById('user-password').value,
-                    name: document.getElementById('user-name').value,
-                    email: '',
-                    phone: '',
-                    role: document.getElementById('user-role').value
-                };
-                state.users.push(u);
+            window.hideUserForm = function() {
+                editingUserId = null;
+                document.getElementById('user-form-card').classList.add('hidden');
+            };
+
+            window.editUserModal = function(id) {
+                const u = state.users.find(x => x.id === id);
+                if (!u) return;
+
+                editingUserId = id;
+                document.getElementById('user-form-card').classList.remove('hidden');
+                document.getElementById('user-form-title').textContent = `✏️ Kullanıcı Düzenle (#${u.id})`;
+                document.getElementById('user-edit-id').value = u.id;
+                document.getElementById('user-username').value = u.username || '';
+                document.getElementById('user-name').value = u.name || '';
+                document.getElementById('user-password').value = u.password || '';
+                document.getElementById('user-role').value = u.role || 'cashier';
+                document.getElementById('user-status').value = u.status || 'active';
+                document.getElementById('user-phone').value = u.phone || '';
+                document.getElementById('user-email').value = u.email || '';
+                
+                document.getElementById('user-form-card').scrollIntoView({ behavior: 'smooth' });
+            };
+
+            window.changeUserPasswordDirect = function(id) {
+                const u = state.users.find(x => x.id === id);
+                if (!u) return;
+
+                const newPass = prompt(`🔑 "${u.name}" (@${u.username}) kullanıcısı için yeni şifre girin:`, u.password || '');
+                if (newPass === null) return;
+                
+                const trimmedPass = newPass.trim();
+                if (!trimmedPass) {
+                    alert('⚠️ Şifre boş bırakılamaz!');
+                    return;
+                }
+
+                u.password = trimmedPass;
                 saveData();
+
+                if (!Array.isArray(state.auditLog)) state.auditLog = [];
+                state.auditLog.push({
+                    user: (state.user && state.user.name) ? state.user.name : 'Sistem',
+                    action: '🔑 Şifre Değiştirildi',
+                    timestamp: new Date().toLocaleString('tr-TR'),
+                    details: `"${u.name}" (@${u.username}) şifresi güncellendi.`
+                });
+
+                alert(`✅ "${u.name}" kullanıcısının şifresi başarıyla güncellendi!`);
                 renderUsers(screen);
-                alert('✅ Kullanıcı eklendi!');
             };
 
-            const list = document.getElementById('users-list');
-            list.innerHTML = state.users.map(u => `
-                <div style="background: ${theme.card}; padding: 10px; border-radius: 6px; border-left: 3px solid ${u.role === 'admin' ? theme.primary : theme.warning}; margin-bottom: 8px;">
-                    <div style="font-weight: bold; color: ${theme.primary};">${u.name} ${u.role === 'admin' ? '🔑' : '💰'}</div>
-                    <div style="font-size: 9px; color: ${theme.textLight};">👤 ${u.username}</div>
-                    <button onclick="deleteUser(${u.id})" style="width: 100%; padding: 4px; background: ${theme.error}20; color: ${theme.error}; border: none; border-radius: 3px; cursor: pointer; font-size: 9px; margin-top: 6px;">🗑️ Sil</button>
-                </div>
-            `).join('');
+            window.toggleUserStatus = function(id) {
+                const u = state.users.find(x => x.id === id);
+                if (!u) return;
+
+                if (state.user && state.user.id === u.id) {
+                    alert('⚠️ Kendi hesabınızı pasife alamazsınız!');
+                    return;
+                }
+
+                const newStatus = u.status === 'passive' ? 'active' : 'passive';
+                u.status = newStatus;
+                saveData();
+
+                if (!Array.isArray(state.auditLog)) state.auditLog = [];
+                state.auditLog.push({
+                    user: (state.user && state.user.name) ? state.user.name : 'Sistem',
+                    action: newStatus === 'passive' ? '⏸️ Kullanıcı Pasife Alındı' : '▶️ Kullanıcı Aktifleştirildi',
+                    timestamp: new Date().toLocaleString('tr-TR'),
+                    details: `"${u.name}" (@${u.username}) durumu: ${newStatus}`
+                });
+
+                filterUsersList();
+            };
+
+            window.saveUserSubmit = function() {
+                const editId = document.getElementById('user-edit-id').value;
+                const usernameVal = (document.getElementById('user-username').value || '').trim().toLowerCase().replace(/\s+/g, '');
+                const nameVal = (document.getElementById('user-name').value || '').trim();
+                const passVal = (document.getElementById('user-password').value || '').trim();
+                const roleVal = document.getElementById('user-role').value;
+                const statusVal = document.getElementById('user-status').value;
+                const phoneVal = (document.getElementById('user-phone').value || '').trim();
+                const emailVal = (document.getElementById('user-email').value || '').trim();
+
+                if (!usernameVal) { alert('⚠️ Kullanıcı adı zorunludur!'); return; }
+                if (!nameVal) { alert('⚠️ Ad / Soyad zorunludur!'); return; }
+                if (!passVal) { alert('⚠️ Şifre zorunludur!'); return; }
+
+                const existingUser = state.users.find(x => x.username.toLowerCase() === usernameVal && String(x.id) !== String(editId));
+                if (existingUser) {
+                    alert(`⚠️ "${usernameVal}" kullanıcı adı başka bir kullanıcı tarafından kullanılıyor! Lütfen farklı bir kullanıcı adı seçin.`);
+                    return;
+                }
+
+                if (editId) {
+                    const u = state.users.find(x => String(x.id) === String(editId));
+                    if (u) {
+                        u.username = usernameVal;
+                        u.name = nameVal;
+                        u.password = passVal;
+                        u.role = roleVal;
+                        u.status = statusVal;
+                        u.phone = phoneVal;
+                        u.email = emailVal;
+
+                        if (!Array.isArray(state.auditLog)) state.auditLog = [];
+                        state.auditLog.push({
+                            user: (state.user && state.user.name) ? state.user.name : 'Sistem',
+                            action: '✏️ Kullanıcı Güncellendi',
+                            timestamp: new Date().toLocaleString('tr-TR'),
+                            details: `"${u.name}" (@${u.username}) güncellendi.`
+                        });
+
+                        alert('✅ Kullanıcı bilgileri başarıyla güncellendi!');
+                    }
+                } else {
+                    const newUser = {
+                        id: Date.now(),
+                        username: usernameVal,
+                        name: nameVal,
+                        password: passVal,
+                        role: roleVal,
+                        status: statusVal,
+                        phone: phoneVal,
+                        email: emailVal,
+                        createdAt: new Date().toLocaleString('tr-TR')
+                    };
+                    state.users.push(newUser);
+
+                    if (!Array.isArray(state.auditLog)) state.auditLog = [];
+                    state.auditLog.push({
+                        user: (state.user && state.user.name) ? state.user.name : 'Sistem',
+                        action: '➕ Kullanıcı Eklendi',
+                        timestamp: new Date().toLocaleString('tr-TR'),
+                        details: `"${newUser.name}" (@${newUser.username}) rol: ${newUser.role}`
+                    });
+
+                    alert('✅ Yeni kullanıcı başarıyla eklendi!');
+                }
+
+                saveData();
+                hideUserForm();
+                renderUsers(screen);
+            };
+
+            window.filterUsersList = function() {
+                const query = (document.getElementById('user-search-query')?.value || '').toLowerCase().trim();
+                const roleFilter = document.getElementById('user-filter-role')?.value || '';
+                const statusFilter = document.getElementById('user-filter-status')?.value || '';
+
+                let filtered = state.users || [];
+
+                if (query) {
+                    filtered = filtered.filter(u => 
+                        (u.username || '').toLowerCase().includes(query) ||
+                        (u.name || '').toLowerCase().includes(query) ||
+                        (u.email || '').toLowerCase().includes(query) ||
+                        (u.phone || '').includes(query)
+                    );
+                }
+
+                if (roleFilter) {
+                    filtered = filtered.filter(u => u.role === roleFilter);
+                }
+
+                if (statusFilter) {
+                    filtered = filtered.filter(u => (u.status || 'active') === statusFilter);
+                }
+
+                const container = document.getElementById('users-cards-grid');
+                if (!container) return;
+
+                if (filtered.length === 0) {
+                    container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: ${theme.textLight}; padding: 20px; font-size: 11px;">📭 Kriterlere uygun kullanıcı bulunamadı.</div>`;
+                    return;
+                }
+
+                container.innerHTML = filtered.map(u => {
+                    const isSelf = state.user && state.user.id === u.id;
+                    const isAdmin = u.role === 'admin';
+                    const isPassive = u.status === 'passive';
+
+                    return `
+                        <div style="background: ${theme.card}; padding: 12px; border-radius: 8px; border-left: 4px solid ${isAdmin ? theme.primary : theme.warning}; box-shadow: 0 2px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: space-between; position: relative;">
+                            <div>
+                                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 6px;">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <div style="width: 32px; height: 32px; border-radius: 50%; background: ${isAdmin ? theme.primary + '20' : theme.warning + '20'}; color: ${isAdmin ? theme.primary : theme.warning}; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold;">
+                                            ${isAdmin ? '🔑' : '💰'}
+                                        </div>
+                                        <div>
+                                            <div style="font-weight: bold; font-size: 12px; color: ${theme.text}; line-height: 1.2;">
+                                                ${u.name} ${isSelf ? `<span style="font-size: 9px; padding: 1px 4px; background: ${theme.success}20; color: ${theme.success}; border-radius: 4px;">(Siz)</span>` : ''}
+                                            </div>
+                                            <div style="font-size: 10px; color: ${theme.primary}; font-weight: bold;">@${u.username}</div>
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+                                        <span style="font-size: 9px; padding: 2px 6px; border-radius: 10px; font-weight: bold; background: ${isAdmin ? theme.primary + '15' : theme.warning + '15'}; color: ${isAdmin ? theme.primary : theme.warning}; border: 1px solid ${isAdmin ? theme.primary + '30' : theme.warning + '30'};">
+                                            ${isAdmin ? '🔑 Yönetici' : '💳 Kasiyer'}
+                                        </span>
+                                        <span style="font-size: 8px; padding: 1px 5px; border-radius: 8px; font-weight: bold; background: ${isPassive ? theme.error + '20' : theme.success + '20'}; color: ${isPassive ? theme.error : theme.success}; margin-top: 2px;">
+                                            ${isPassive ? '🔴 Pasif' : '🟢 Aktif'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div style="font-size: 10px; color: ${theme.textLight}; margin-bottom: 8px; padding: 6px; background: ${theme.background}; border-radius: 4px; line-height: 1.5;">
+                                    <div>🔑 <strong>Şifre:</strong> <span style="font-family: monospace; letter-spacing: 1px;">${u.password}</span></div>
+                                    ${u.phone ? `<div>📞 <strong>Tel:</strong> ${u.phone}</div>` : ''}
+                                    ${u.email ? `<div>📧 <strong>E-Posta:</strong> ${u.email}</div>` : ''}
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 8px; border-top: 1px solid ${theme.primary}15; padding-top: 8px;">
+                                <button onclick="editUserModal(${u.id})" style="padding: 5px; background: ${theme.primary}15; color: ${theme.primary}; border: 1px solid ${theme.primary}30; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 10px; display: flex; align-items: center; justify-content: center; gap: 2px;">
+                                    ✏️ Düzenle
+                                </button>
+                                <button onclick="changeUserPasswordDirect(${u.id})" style="padding: 5px; background: ${theme.warning}15; color: ${theme.warning}; border: 1px solid ${theme.warning}30; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 10px; display: flex; align-items: center; justify-content: center; gap: 2px;">
+                                    🔑 Şifre Değiştir
+                                </button>
+                                <button onclick="toggleUserStatus(${u.id})" style="padding: 5px; background: ${isPassive ? theme.success + '15' : theme.error + '15'}; color: ${isPassive ? theme.success : theme.error}; border: 1px solid ${isPassive ? theme.success + '30' : theme.error + '30'}; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 10px; display: flex; align-items: center; justify-content: center; gap: 2px;" ${isSelf ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : ''}>
+                                    ${isPassive ? '▶️ Aktife Al' : '⏸️ Pasife Al'}
+                                </button>
+                                <button onclick="deleteUser(${u.id})" style="padding: 5px; background: ${theme.error}15; color: ${theme.error}; border: 1px solid ${theme.error}30; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 10px; display: flex; align-items: center; justify-content: center; gap: 2px;" ${isSelf ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : ''}>
+                                    🗑️ Sil
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            };
 
             window.deleteUser = function(id) {
-                if (state.users.length === 1) { alert('⚠️ En az bir kullanıcı gerekli!'); return; }
+                const u = state.users.find(x => x.id === id);
+                if (!u) return;
+
+                if (state.user && state.user.id === id) {
+                    alert('⚠️ Kendi hesabınızı silemezsiniz!');
+                    return;
+                }
+
+                if (state.users.length <= 1) {
+                    alert('⚠️ Sistemde en az bir kullanıcı bulunmalıdır!');
+                    return;
+                }
+
+                const adminCount = state.users.filter(x => x.role === 'admin' && x.id !== id).length;
+                if (u.role === 'admin' && adminCount === 0) {
+                    alert('⚠️ Sistemde en az bir yönetici hesabı bulunmalıdır! Bu yöneticiyi silemezsiniz.');
+                    return;
+                }
+
+                if (!confirm(`⚠️ "${u.name}" (@${u.username}) kullanıcısını silmek istediğinizden emin misiniz?`)) {
+                    return;
+                }
+
                 state.users = state.users.filter(x => x.id !== id);
                 saveData();
+
+                if (!Array.isArray(state.auditLog)) state.auditLog = [];
+                state.auditLog.push({
+                    user: (state.user && state.user.name) ? state.user.name : 'Sistem',
+                    action: '🗑️ Kullanıcı Silindi',
+                    timestamp: new Date().toLocaleString('tr-TR'),
+                    details: `"${u.name}" (@${u.username}) silindi.`
+                });
+
+                alert('✅ Kullanıcı silindi!');
                 renderUsers(screen);
             };
+
+            filterUsersList();
         }
 
         // ========== QR YAZDIRMA ==========
@@ -5612,6 +6123,14 @@
                 if (!themes[presetKey]) return;
                 theme = Object.assign({}, themes[presetKey]);
                 theme.name = themes[presetKey].name;
+                if (state.user) {
+                    const uKey = (state.user.username || state.user.name || 'user').toLowerCase().trim();
+                    if (!state.userThemes) state.userThemes = {};
+                    state.userThemes[uKey] = Object.assign({}, theme);
+                    state.user.userTheme = Object.assign({}, theme);
+                    localStorage.setItem('cagdas_user_theme_' + uKey, JSON.stringify(theme));
+                }
+                saveData();
                 applyThemeStyles();
                 window.switchThemeTab(activeTab);
                 updateLivePreviewBox();
@@ -5708,11 +6227,18 @@
 
             window.saveAndApplyCustomTheme = function() {
                 try {
+                    if (state.user) {
+                        const uKey = (state.user.username || state.user.name || 'user').toLowerCase().trim();
+                        if (!state.userThemes) state.userThemes = {};
+                        state.userThemes[uKey] = Object.assign({}, theme);
+                        state.user.userTheme = Object.assign({}, theme);
+                        localStorage.setItem('cagdas_user_theme_' + uKey, JSON.stringify(theme));
+                    }
                     localStorage.setItem('cagdas_custom_theme', JSON.stringify(theme));
                     state.customTheme = Object.assign({}, theme);
                     saveData();
                     applyThemeStyles();
-                    alert('✅ Tema ve görsel tasarım ayarları başarıyla kaydedildi ve tüm uygulamaya uygulandı!');
+                    alert('✅ Tema ayarları bu hesaba özel olarak kaydedildi ve uygulandı!');
                     render();
                 } catch(e) {
                     console.error(e);
@@ -5723,12 +6249,20 @@
             window.resetToDefaultTheme = function() {
                 if (!confirm('Varsayılan Mor temaya dönmek istediğinizden emin misiniz?')) return;
                 theme = Object.assign({}, themes.purple);
+                if (state.user) {
+                    const uKey = (state.user.username || state.user.name || 'user').toLowerCase().trim();
+                    if (state.userThemes && state.userThemes[uKey]) {
+                        delete state.userThemes[uKey];
+                    }
+                    delete state.user.userTheme;
+                    try { localStorage.removeItem('cagdas_user_theme_' + uKey); } catch(e){}
+                }
                 try { localStorage.removeItem('cagdas_custom_theme'); } catch(e){}
                 delete state.customTheme;
                 saveData();
                 applyThemeStyles();
                 render();
-                alert('✅ Varsayılan tema yüklendi!');
+                alert('✅ Hesabınız için varsayılan tema yüklendi!');
             };
 
             // İlk sekme yüklemesi
@@ -6010,6 +6544,9 @@
                         ['products', 'customers', 'suppliers', 'sales', 'expenses', 'returns', 'cart', 'debts', 'stockLog', 'cashLog', 'notifications', 'users'].forEach(key => {
                             if (!Array.isArray(window.state[key])) window.state[key] = [];
                         });
+                        if (typeof window.normalizeUsersList === 'function') {
+                            window.normalizeUsersList();
+                        }
                         try {
                             localStorage.setItem('cagdas', JSON.stringify(window.state));
                         } catch(e) {}
