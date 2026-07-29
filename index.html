@@ -186,8 +186,38 @@
 
             const bgImgUrl = theme.bgImage || '';
             const bgVideoUrl = theme.bgVideo || '';
-            const bgOpacity = theme.bgOpacity !== undefined ? theme.bgOpacity : 0.25;
+            const bgOpacity = theme.bgOpacity !== undefined ? theme.bgOpacity : 0.85;
             const bgBlur = theme.bgBlur || 0;
+
+            // Global Background Image Element Engine
+            let bgImgElem = document.getElementById('global-bg-image');
+            if (bgImgUrl && !bgVideoUrl) {
+                if (!bgImgElem) {
+                    bgImgElem = document.createElement('div');
+                    bgImgElem.id = 'global-bg-image';
+                    document.body.prepend(bgImgElem);
+                }
+                bgImgElem.style.display = 'block';
+                bgImgElem.style.position = 'fixed';
+                bgImgElem.style.top = '0';
+                bgImgElem.style.left = '0';
+                bgImgElem.style.right = '0';
+                bgImgElem.style.bottom = '0';
+                bgImgElem.style.width = '100vw';
+                bgImgElem.style.height = '100vh';
+                bgImgElem.style.backgroundImage = 'url(' + JSON.stringify(bgImgUrl) + ')';
+                bgImgElem.style.backgroundSize = bgImgUrl.startsWith('data:image/svg') ? 'auto' : 'cover';
+                bgImgElem.style.backgroundPosition = 'center';
+                bgImgElem.style.backgroundRepeat = bgImgUrl.startsWith('data:image/svg') ? 'repeat' : 'no-repeat';
+                bgImgElem.style.opacity = bgOpacity;
+                bgImgElem.style.filter = bgBlur > 0 ? `blur(${bgBlur}px)` : 'none';
+                bgImgElem.style.pointerEvents = 'none';
+                bgImgElem.style.zIndex = '-1';
+            } else {
+                if (bgImgElem) {
+                    bgImgElem.style.display = 'none';
+                }
+            }
 
             // Global Background Video Engine
             let bgVideoElem = document.getElementById('global-bg-video');
@@ -213,7 +243,7 @@
                 bgVideoElem.style.height = '100vh';
                 bgVideoElem.style.objectFit = 'cover';
                 bgVideoElem.style.opacity = bgOpacity;
-                bgVideoElem.style.filter = `blur(${bgBlur}px)`;
+                bgVideoElem.style.filter = bgBlur > 0 ? `blur(${bgBlur}px)` : 'none';
                 bgVideoElem.style.pointerEvents = 'none';
                 bgVideoElem.style.zIndex = '-1';
 
@@ -231,24 +261,6 @@
                 ? `linear-gradient(135deg, ${currentPrimary} 0%, ${currentSecondary} 100%)`
                 : currentPrimary;
 
-            const bgStyleRule = (bgImgUrl && !bgVideoUrl) ? `
-                body::before {
-                    content: "";
-                    position: fixed;
-                    inset: 0;
-                    background-image: url("${bgImgUrl}");
-                    background-size: cover;
-                    background-position: center;
-                    background-repeat: repeat;
-                    opacity: ${bgOpacity};
-                    filter: blur(${bgBlur}px);
-                    pointer-events: none;
-                    z-index: -1;
-                }
-            ` : `
-                body::before { content: none !important; }
-            `;
-
             const glassStyleRule = isGlass ? `
                 .card, .drawer {
                     backdrop-filter: blur(14px) !important;
@@ -260,12 +272,19 @@
             ` : '';
 
             styleTag.textContent = `
+                html {
+                    background-color: ${theme.background || '#f9f5ff'} !important;
+                }
                 body {
                     font-family: ${fontFam} !important;
-                    background-color: ${theme.background || '#f9f5ff'} !important;
+                    background-color: transparent !important;
                     color: ${theme.text || '#1f2937'} !important;
                     position: relative;
                     min-height: 100vh;
+                }
+                #app {
+                    position: relative;
+                    z-index: 1;
                 }
                 .header {
                     background: ${headerGradient} !important;
@@ -284,7 +303,6 @@
                     background: ${headerGradient} !important;
                     box-shadow: 0 4px 12px ${currentPrimary}40 !important;
                 }
-                ${bgStyleRule}
                 ${glassStyleRule}
 
                 /* Mobile & PC Layout Refinement */
@@ -540,21 +558,34 @@
         }
 
         async function startUnifiedCameraScanner(videoElementId, resultElementId, onScanned, specificDeviceId = null) {
+            const videoElem = document.getElementById(videoElementId);
+            const resultElem = document.getElementById(resultElementId);
             try {
                 stopActiveCamera();
-                
-                const videoElem = document.getElementById(videoElementId);
                 if (!videoElem) return;
 
-                const constraints = {
-                    video: specificDeviceId ? { deviceId: { exact: specificDeviceId } } : { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+                let constraints = {
+                    video: specificDeviceId ? { deviceId: { exact: specificDeviceId } } : { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
                 };
 
-                activeCameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+                try {
+                    activeCameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+                } catch(constraintErr) {
+                    console.warn("Ideal camera constraints failed, attempting basic fallback:", constraintErr);
+                    try {
+                        activeCameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                    } catch(fallbackErr) {
+                        activeCameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    }
+                }
+
                 videoElem.srcObject = activeCameraStream;
                 await videoElem.play();
 
-                const resultElem = document.getElementById(resultElementId);
+                if (resultElem) {
+                    resultElem.style.color = theme.success;
+                    resultElem.textContent = '🟢 Kamera Aktif - Barkod / QR gösterin...';
+                }
                 
                 let nativeBarcodeDetector = null;
                 if ('BarcodeDetector' in window) {
@@ -637,8 +668,16 @@
                 }, 180);
 
             } catch (err) {
-                alert('⚠️ Kamera erişimi sağlanamadı! Lütfen tarayıcınızda kamera izni verin.');
                 console.error('Kamera açma hatası:', err);
+                if (resultElem) {
+                    resultElem.style.color = theme.error;
+                    resultElem.textContent = '❌ Kamera açılamadı. İzinlerin verildiğinden veya kameranın kullanımda olmadığından emin olun.';
+                }
+                const msg = (err.name === 'NotAllowedError' || err.message?.includes('Permission denied'))
+                    ? '⚠️ Kamera erişim izni reddedildi!\nLütfen tarayıcı adres çubuğundaki kilit simgesine tıklayıp kamera iznini "İzin Ver" olarak değiştirin veya uygulamayı yenileyin.'
+                    : '⚠️ Kamera erişilemedi veya başka bir uygulama tarafından kullanılıyor.';
+                
+                alert(msg);
             }
         }
 
@@ -1062,12 +1101,31 @@
 
         // ========== RENDER ==========
         function render() {
-            if (state.user) {
-                loadUserTheme(state.user);
+            try {
+                if (state.user) {
+                    loadUserTheme(state.user);
+                } else {
+                    applyThemeStyles();
+                }
+                const app = document.getElementById('app');
+                if (!app) return;
+                if (!state.user) renderLogin();
+                else renderApp();
+            } catch (err) {
+                console.error("Render error caught:", err);
+                const app = document.getElementById('app');
+                if (app) {
+                    app.innerHTML = `
+                        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; padding:20px; text-align:center;">
+                            <div style="background:white; padding:24px; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.15); max-width:400px; width:100%;">
+                                <h3 style="color:#dc2626; margin-bottom:12px; font-size:16px;">⚠️ Ekran Yüklenirken Hata Oluştu</h3>
+                                <p style="font-size:12px; color:#4b5563; margin-bottom:16px;">Tema ayarlarından kaynaklı görünüm sıfırlanabilir.</p>
+                                <button onclick="window.resetToDefaultTheme(); location.reload();" style="padding:10px 16px; background:#6366f1; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">🔄 Sayfayı Sıfırla ve Yenile</button>
+                            </div>
+                        </div>
+                    `;
+                }
             }
-            const app = document.getElementById('app');
-            if (!state.user) renderLogin();
-            else renderApp();
         }
 
         function renderLogin() {
@@ -1174,11 +1232,11 @@
         function renderApp() {
             const isAdmin = state.user && state.user.role === 'admin';
             const navItems = isAdmin 
-                ? ['dashboard','pos','inventory','customers','suppliers','expenses','returns','debts','charts','period','stock','cash','users','categories','profit','daily','audit','notifications','theme','qr','barcode','image','backup','logout']
+                ? ['dashboard','pos','inventory','customers','suppliers','expenses','returns','debts','charts','period','stock','cash','users','categories','profit','detailed_profit','daily','audit','notifications','theme','qr','barcode','image','backup','logout']
                 : ['dashboard','pos','customers','returns','theme','logout'];
 
-            const navIcons = { dashboard: '🏠', pos: '💳', inventory: '📦', customers: '👥', suppliers: '🚚', expenses: '💸', returns: '↩️', debts: '💰', charts: '📊', period: '📋', stock: '📋', cash: '🏧', users: '👤', categories: '📂', profit: '💵', daily: '📊', audit: '📝', notifications: '🔔', theme: '🎨', qr: '🔳', barcode: '📦', image: '📸', backup: '💾', logout: '🚪' };
-            const navNames = { dashboard: 'Panel', pos: 'Kasa', inventory: 'Envanter', customers: 'Müşteri', suppliers: 'Tedarikçi', expenses: 'Gider', returns: 'İade', debts: 'Borç', charts: 'Grafik', period: 'Dönem', stock: 'Stok', cash: 'Kasa', users: 'Kullanıcı', categories: 'Kategoriler', profit: 'Mali Raporlar', daily: 'Gün Sonu', audit: 'İşlem Geçmişi', notifications: 'Bildir', theme: 'Tema', qr: 'QR', barcode: 'Barcode', image: 'Foto', backup: 'Yedek', logout: 'Çıkış' };
+            const navIcons = { dashboard: '🏠', pos: '💳', inventory: '📦', customers: '👥', suppliers: '🚚', expenses: '💸', returns: '↩️', debts: '💰', charts: '📊', period: '📋', stock: '📋', cash: '🏧', users: '👤', categories: '📂', profit: '💵', detailed_profit: '🧮', daily: '📊', audit: '📝', notifications: '🔔', theme: '🎨', qr: '🔳', barcode: '📦', image: '📸', backup: '💾', logout: '🚪' };
+            const navNames = { dashboard: 'Panel', pos: 'Kasa', inventory: 'Envanter', customers: 'Müşteri', suppliers: 'Tedarikçi', expenses: 'Gider', returns: 'İade', debts: 'Borç', charts: 'Grafik', period: 'Dönem', stock: 'Stok', cash: 'Kasa', users: 'Kullanıcı', categories: 'Kategoriler', profit: 'Mali Raporlar', detailed_profit: 'Net Kar & Maliyet', daily: 'Gün Sonu', audit: 'İşlem Geçmişi', notifications: 'Bildir', theme: 'Tema', qr: 'QR', barcode: 'Barcode', image: 'Foto', backup: 'Yedek', logout: 'Çıkış' };
             
             // Menü grupları
             const navGroups = isAdmin 
@@ -1186,7 +1244,7 @@
                     'TEMEL': ['dashboard', 'pos'],
                     'ENVANTER': ['inventory', 'categories', 'stock'],
                     'İŞLETME': ['customers', 'suppliers', 'expenses', 'returns', 'debts'],
-                    'RAPORLAR': ['charts', 'period', 'profit', 'daily', 'audit', 'cash'],
+                    'RAPORLAR': ['charts', 'period', 'profit', 'detailed_profit', 'daily', 'audit', 'cash'],
                     'YÖNETİM': ['users', 'notifications'],
                     'ARAÇLAR': ['theme', 'qr', 'barcode', 'image', 'backup'],
                     'ÇIKIŞ': ['logout']
@@ -1349,6 +1407,7 @@
                     case 'users': if(isAdmin) renderUsers(screen); else renderDashboard(screen); break;
                     case 'categories': if(isAdmin) renderCategoryManagement(screen); else renderDashboard(screen); break;
                     case 'profit': if(isAdmin) renderMaliRaporlari(screen); else renderDashboard(screen); break;
+                    case 'detailed_profit': if(isAdmin) renderDetailedProfitReport(screen); else renderDashboard(screen); break;
                     case 'daily': if(isAdmin) renderDailySummary(screen); else renderDashboard(screen); break;
                     case 'audit': if(isAdmin) renderAuditLog(screen); else renderDashboard(screen); break;
                     case 'notifications': if(isAdmin) renderNotifications(screen); else renderDashboard(screen); break;
@@ -5178,6 +5237,568 @@
             calculateProfitReport('', '');
         }
 
+        // ========== DETAYLI NET KAR / ZARAR & MALİYET RAPORU ==========
+        function renderDetailedProfitReport(screen) {
+            screen.innerHTML = `
+                <div class="card" style="border-left: 3px solid ${theme.primary}; margin-bottom: 12px; background: ${theme.card};">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                        <div>
+                            <div style="font-size: 14px; font-weight: 900; color: ${theme.primary}; display: flex; align-items: center; gap: 6px;">
+                                <span>🧮</span> Detaylı Kar / Zarar & Net Maliyet Raporu
+                            </div>
+                            <div style="font-size: 10px; color: ${theme.textLight}; margin-top: 2px;">
+                                KDV, Alış Fiyatı (Net Maliyet), İskonto, Giderler ve İadeler düşülerek anlık net kar hesabı.
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 6px;">
+                            <button onclick="window.exportDetailedProfitPDF()" style="padding: 6px 12px; background: ${theme.info}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 10px; display: inline-flex; align-items: center; gap: 4px;">
+                                📄 PDF İndir
+                            </button>
+                            <button onclick="window.exportDetailedProfitCSV()" style="padding: 6px 12px; background: ${theme.success}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 10px; display: inline-flex; align-items: center; gap: 4px;">
+                                📊 Excel / CSV
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- HESAPLAMA VE FİLTRE PARAMETRELERİ -->
+                <div class="card" style="margin-bottom: 12px; background: ${theme.card}; border: 1px solid ${theme.primary}30;">
+                    <div style="font-size: 11px; font-weight: bold; color: ${theme.primary}; margin-bottom: 8px; display: flex; align-items: center; gap: 4px;">
+                        <span>⚙️</span> Rapor Parametreleri & Filtreler
+                    </div>
+
+                    <!-- Hızlı Tarih Butonları -->
+                    <div style="display: flex; gap: 4px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 8px;">
+                        <button onclick="window.setDetailedProfitQuickDate('today')" style="padding: 4px 8px; background: ${theme.primary}20; color: ${theme.primary}; border: 1px solid ${theme.primary}50; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold; white-space: nowrap;">📅 Bugün</button>
+                        <button onclick="window.setDetailedProfitQuickDate('yesterday')" style="padding: 4px 8px; background: ${theme.primary}20; color: ${theme.primary}; border: 1px solid ${theme.primary}50; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold; white-space: nowrap;">⏪ Dün</button>
+                        <button onclick="window.setDetailedProfitQuickDate('this_week')" style="padding: 4px 8px; background: ${theme.primary}20; color: ${theme.primary}; border: 1px solid ${theme.primary}50; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold; white-space: nowrap;">🗓️ Bu Hafta</button>
+                        <button onclick="window.setDetailedProfitQuickDate('this_month')" style="padding: 4px 8px; background: ${theme.primary}20; color: ${theme.primary}; border: 1px solid ${theme.primary}50; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold; white-space: nowrap;">📆 Bu Ay</button>
+                        <button onclick="window.setDetailedProfitQuickDate('all')" style="padding: 4px 8px; background: ${theme.primary}20; color: ${theme.primary}; border: 1px solid ${theme.primary}50; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold; white-space: nowrap;">🌐 Tüm Zamanlar</button>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 8px;">
+                        <div>
+                            <label style="font-size: 9px; color: ${theme.textLight}; display: block; margin-bottom: 2px;">📅 Başlangıç Tarihi</label>
+                            <input type="date" id="net-start-date" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 10px;" onchange="window.calculateNetProfitReport()" />
+                        </div>
+                        <div>
+                            <label style="font-size: 9px; color: ${theme.textLight}; display: block; margin-bottom: 2px;">📅 Bitiş Tarihi</label>
+                            <input type="date" id="net-end-date" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 10px;" onchange="window.calculateNetProfitReport()" />
+                        </div>
+                        <div>
+                            <label style="font-size: 9px; color: ${theme.textLight}; display: block; margin-bottom: 2px;">⚖️ KDV Oranı (%)</label>
+                            <select id="net-vat-rate" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 10px;" onchange="window.calculateNetProfitReport()">
+                                <option value="20" selected>%20 (Standart KDV)</option>
+                                <option value="10">%10 (Gıda / Mama KDV)</option>
+                                <option value="1">%1 (İndirimli KDV)</option>
+                                <option value="0">%0 (Muaf / KDV'siz)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 9px; color: ${theme.textLight}; display: block; margin-bottom: 2px;">🏷️ KDV Tipi</label>
+                            <select id="net-vat-type" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 10px;" onchange="window.calculateNetProfitReport()">
+                                <option value="included" selected>Satış Fiyatına KDV Dahil</option>
+                                <option value="excluded">Satış Fiyatına KDV Hariç</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 9px; color: ${theme.textLight}; display: block; margin-bottom: 2px;">🏷️ İlave İskonto Oranı (%)</label>
+                            <input type="number" id="net-discount-rate" placeholder="0" value="0" min="0" max="100" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 10px;" oninput="window.calculateNetProfitReport()" />
+                        </div>
+                    </div>
+
+                    <div style="display: flex; flex-wrap: wrap; gap: 12px; padding-top: 6px; border-top: 1px dashed ${theme.primary}30; font-size: 10px;">
+                        <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; color: ${theme.text};">
+                            <input type="checkbox" id="net-deduct-expenses" checked onchange="window.calculateNetProfitReport()" />
+                            💸 Dükkan Giderlerini Düş
+                        </label>
+                        <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; color: ${theme.text};">
+                            <input type="checkbox" id="net-deduct-returns" checked onchange="window.calculateNetProfitReport()" />
+                            ↩️ Müşteri İadelerini Düş
+                        </label>
+                    </div>
+                </div>
+
+                <!-- ÖZET METRİK KARTLARI -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-bottom: 12px;">
+                    <div class="card" style="border-left: 3px solid ${theme.info}; background: ${theme.card}; padding: 10px;">
+                        <div style="font-size: 9px; color: ${theme.textLight}; font-weight: bold;">💵 Brüt Ciro (Satış)</div>
+                        <div id="net-card-gross" style="font-size: 16px; font-weight: 900; color: ${theme.info}; margin-top: 4px;">0₺</div>
+                        <div id="net-card-count" style="font-size: 8px; color: ${theme.textLight}; margin-top: 2px;">0 Kalem Satış</div>
+                    </div>
+
+                    <div class="card" style="border-left: 3px solid ${theme.warning}; background: ${theme.card}; padding: 10px;">
+                        <div style="font-size: 9px; color: ${theme.textLight}; font-weight: bold;">🏷️ Toplam İskonto</div>
+                        <div id="net-card-discount" style="font-size: 16px; font-weight: 900; color: ${theme.warning}; margin-top: 4px;">-0₺</div>
+                        <div style="font-size: 8px; color: ${theme.textLight}; margin-top: 2px;">Satış İndirim Düşümü</div>
+                    </div>
+
+                    <div class="card" style="border-left: 3px solid #8b5cf6; background: ${theme.card}; padding: 10px;">
+                        <div style="font-size: 9px; color: ${theme.textLight}; font-weight: bold;">⚖️ Hesaplanan KDV</div>
+                        <div id="net-card-vat" style="font-size: 16px; font-weight: 900; color: #8b5cf6; margin-top: 4px;">-0₺</div>
+                        <div id="net-card-vat-sub" style="font-size: 8px; color: ${theme.textLight}; margin-top: 2px;">%20 KDV Yükü</div>
+                    </div>
+
+                    <div class="card" style="border-left: 3px solid #ec4899; background: ${theme.card}; padding: 10px;">
+                        <div style="font-size: 9px; color: ${theme.textLight}; font-weight: bold;">📦 Net Stok Maliyeti</div>
+                        <div id="net-card-cost" style="font-size: 16px; font-weight: 900; color: #ec4899; margin-top: 4px;">-0₺</div>
+                        <div style="font-size: 8px; color: ${theme.textLight}; margin-top: 2px;">Ürün Alış Maliyetleri</div>
+                    </div>
+
+                    <div class="card" style="border-left: 3px solid ${theme.error}; background: ${theme.card}; padding: 10px;">
+                        <div style="font-size: 9px; color: ${theme.textLight}; font-weight: bold;">💸 Gider & İade</div>
+                        <div id="net-card-exp-ret" style="font-size: 16px; font-weight: 900; color: ${theme.error}; margin-top: 4px;">-0₺</div>
+                        <div style="font-size: 8px; color: ${theme.textLight}; margin-top: 2px;">Dükkan Masraf + İadeler</div>
+                    </div>
+
+                    <div class="card" id="net-card-final-box" style="border-left: 4px solid ${theme.success}; background: ${theme.card}; padding: 10px; grid-column: span 2;">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <div style="font-size: 10px; color: ${theme.textLight}; font-weight: bold;">💎 NET KAR / ZARAR</div>
+                                <div id="net-card-final-profit" style="font-size: 22px; font-weight: 900; color: ${theme.success}; margin-top: 2px;">0₺</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 9px; color: ${theme.textLight};">Net Kar Marjı</div>
+                                <div id="net-card-margin" style="font-size: 15px; font-weight: bold; color: ${theme.success}; margin-top: 2px;">%0.0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DÜZENLİ HESAPLAMA AÇIKLAMA ADIMLARI -->
+                <div class="card" style="margin-bottom: 12px; background: ${theme.background}; font-size: 10px; color: ${theme.textLight}; border: 1px dashed ${theme.primary}40;">
+                    <div style="font-weight: bold; color: ${theme.primary}; margin-bottom: 4px;">📐 Net Kar Hesabı Formül Adımları:</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px; line-height: 1.4;">
+                        <span>1️⃣ Brüt Satış Ciro</span>
+                        <span>➡️ 2️⃣ (-) İskonto</span>
+                        <span>➡️ 3️⃣ (-) KDV Yükü</span>
+                        <span>➡️ 4️⃣ (-) Ürün Alış Maliyeti</span>
+                        <span>➡️ 5️⃣ (-) Dükkan Gider & İadeler</span>
+                        <span>➡️ <strong>(=) NET KAR</strong></span>
+                    </div>
+                </div>
+
+                <!-- TARİH BAZINDA GÜNLÜK NET KAR TABLOSU -->
+                <div class="card" style="border-left: 3px solid ${theme.primary}; margin-bottom: 12px; background: ${theme.card};">
+                    <div style="font-size: 12px; font-weight: bold; color: ${theme.primary}; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                        <span>📅 Günlük Net Kar / Zarar Tablosu</span>
+                        <span id="daily-rows-count" style="font-size: 10px; color: ${theme.textLight}; font-weight: normal;"></span>
+                    </div>
+                    <div id="net-daily-table-container" style="max-height: 280px; overflow-y: auto; overflow-x: auto;"></div>
+                </div>
+
+                <!-- SATIŞ KALEMLERİ BAZLI NET MALİYET DÖKÜMÜ -->
+                <div class="card" style="border-left: 3px solid ${theme.info}; background: ${theme.card};">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
+                        <div style="font-size: 12px; font-weight: bold; color: ${theme.info};">
+                            📋 Satış Detayları & Kalem Net Maliyet Listesi
+                        </div>
+                        <input type="text" id="net-item-search" placeholder="Fiş no veya ürün adı ile filtrele..." style="padding: 4px 8px; border-radius: 4px; border: 1px solid ${theme.primary}; font-size: 10px; width: 200px;" oninput="window.calculateNetProfitReport()" />
+                    </div>
+                    <div id="net-items-detail-container" style="max-height: 380px; overflow-y: auto;"></div>
+                </div>
+            `;
+
+            // Varsayılan tarihleri ayarla (Bugün)
+            const todayStr = new Date().toISOString().split('T')[0];
+            const startEl = document.getElementById('net-start-date');
+            const endEl = document.getElementById('net-end-date');
+            if (startEl) startEl.value = todayStr;
+            if (endEl) endEl.value = todayStr;
+
+            // Hızlı tarih ayarlama helper'ı
+            window.setDetailedProfitQuickDate = function(range) {
+                const sEl = document.getElementById('net-start-date');
+                const eEl = document.getElementById('net-end-date');
+                if (!sEl || !eEl) return;
+
+                const now = new Date();
+                const todayFormatted = now.toISOString().split('T')[0];
+
+                if (range === 'today') {
+                    sEl.value = todayFormatted;
+                    eEl.value = todayFormatted;
+                } else if (range === 'yesterday') {
+                    const y = new Date(now);
+                    y.setDate(y.getDate() - 1);
+                    const yFormatted = y.toISOString().split('T')[0];
+                    sEl.value = yFormatted;
+                    eEl.value = yFormatted;
+                } else if (range === 'this_week') {
+                    const firstDay = new Date(now);
+                    const day = now.getDay() || 7;
+                    firstDay.setDate(now.getDate() - day + 1);
+                    sEl.value = firstDay.toISOString().split('T')[0];
+                    eEl.value = todayFormatted;
+                } else if (range === 'this_month') {
+                    const firstDayMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                    sEl.value = firstDayMonth.toISOString().split('T')[0];
+                    eEl.value = todayFormatted;
+                } else if (range === 'all') {
+                    sEl.value = '';
+                    eEl.value = '';
+                }
+                window.calculateNetProfitReport();
+            };
+
+            // Ana Hesaplama Fonksiyonu
+            window.calculateNetProfitReport = function() {
+                const startDate = document.getElementById('net-start-date')?.value || '';
+                const endDate = document.getElementById('net-end-date')?.value || '';
+                const vatRate = (parseFloat(document.getElementById('net-vat-rate')?.value) || 20) / 100;
+                const vatType = document.getElementById('net-vat-type')?.value || 'included';
+                const extraDiscountRate = (parseFloat(document.getElementById('net-discount-rate')?.value) || 0) / 100;
+                const deductExpenses = document.getElementById('net-deduct-expenses')?.checked ?? true;
+                const deductReturns = document.getElementById('net-deduct-returns')?.checked ?? true;
+                const searchQuery = (document.getElementById('net-item-search')?.value || '').trim().toLowerCase();
+
+                // 1. Satışları Filtrele
+                let filteredSales = state.sales || [];
+                if (startDate || endDate) {
+                    filteredSales = filteredSales.filter(sale => {
+                        if (!sale.timestamp) return false;
+                        const formattedDate = parseToYYYYMMDD(sale.timestamp);
+                        if (!formattedDate) return false;
+                        if (startDate && formattedDate < startDate) return false;
+                        if (endDate && formattedDate > endDate) return false;
+                        return true;
+                    });
+                }
+
+                // Akümülatörler
+                let totalGrossSales = 0;
+                let totalDiscount = 0;
+                let totalBuyCost = 0;
+                let totalVatAmount = 0;
+                let totalItemsQty = 0;
+
+                const dailyMap = {};
+                const detailedItems = [];
+
+                filteredSales.forEach(sale => {
+                    const dateStr = sale.timestamp ? sale.timestamp.split(',')[0].trim() : 'Tarihsiz';
+
+                    if (!dailyMap[dateStr]) {
+                        dailyMap[dateStr] = {
+                            date: dateStr,
+                            gross: 0,
+                            discount: 0,
+                            cost: 0,
+                            vat: 0,
+                            count: 0
+                        };
+                    }
+
+                    (sale.items || []).forEach(item => {
+                        const qty = parseFloat(item.qty) || 1;
+                        const sellPrice = parseFloat(item.sellPrice) || 0;
+                        const buyPrice = parseFloat(item.buyPrice) || 0;
+
+                        const itemGross = sellPrice * qty;
+                        const itemDiscount = itemGross * extraDiscountRate;
+                        const itemNetAfterDiscount = itemGross - itemDiscount;
+
+                        // KDV hesabı
+                        let itemVat = 0;
+                        let itemNetSalesExVat = itemNetAfterDiscount;
+
+                        if (vatType === 'included') {
+                            itemNetSalesExVat = itemNetAfterDiscount / (1 + vatRate);
+                            itemVat = itemNetAfterDiscount - itemNetSalesExVat;
+                        } else {
+                            itemVat = itemNetAfterDiscount * vatRate;
+                            itemNetSalesExVat = itemNetAfterDiscount;
+                        }
+
+                        const itemBuyCostTotal = buyPrice * qty;
+                        const itemNetProfit = itemNetSalesExVat - itemBuyCostTotal;
+
+                        totalGrossSales += itemGross;
+                        totalDiscount += itemDiscount;
+                        totalBuyCost += itemBuyCostTotal;
+                        totalVatAmount += itemVat;
+                        totalItemsQty += qty;
+
+                        dailyMap[dateStr].gross += itemGross;
+                        dailyMap[dateStr].discount += itemDiscount;
+                        dailyMap[dateStr].cost += itemBuyCostTotal;
+                        dailyMap[dateStr].vat += itemVat;
+                        dailyMap[dateStr].count += qty;
+
+                        // Arama filtresi
+                        const matchesSearch = !searchQuery || 
+                            (sale.invoiceNo || '').toLowerCase().includes(searchQuery) ||
+                            (item.name || '').toLowerCase().includes(searchQuery) ||
+                            (sale.customer || '').toLowerCase().includes(searchQuery);
+
+                        if (matchesSearch) {
+                            detailedItems.push({
+                                invoiceNo: sale.invoiceNo || 'INV-0',
+                                timestamp: sale.timestamp,
+                                customer: sale.customer || 'Peşin Alıcı',
+                                name: item.name || 'Ürün',
+                                qty: qty,
+                                buyPrice: buyPrice,
+                                sellPrice: sellPrice,
+                                gross: itemGross,
+                                discount: itemDiscount,
+                                vat: itemVat,
+                                cost: itemBuyCostTotal,
+                                netProfit: itemNetProfit,
+                                margin: itemNetSalesExVat > 0 ? (itemNetProfit / itemNetSalesExVat) * 100 : 0
+                            });
+                        }
+                    });
+                });
+
+                // Giderler
+                let totalExpenses = 0;
+                if (deductExpenses && Array.isArray(state.expenses)) {
+                    state.expenses.forEach(exp => {
+                        if (!exp.date) return;
+                        const expFormatted = parseToYYYYMMDD(exp.date);
+                        if (startDate && expFormatted < startDate) return;
+                        if (endDate && expFormatted > endDate) return;
+                        totalExpenses += parseFloat(exp.amount) || 0;
+                    });
+                }
+
+                // İadeler
+                let totalReturns = 0;
+                if (deductReturns && Array.isArray(state.returns)) {
+                    state.returns.forEach(ret => {
+                        const retDate = ret.date || ret.timestamp || '';
+                        if (!retDate) return;
+                        const retFormatted = parseToYYYYMMDD(retDate);
+                        if (startDate && retFormatted < startDate) return;
+                        if (endDate && retFormatted > endDate) return;
+                        totalReturns += parseFloat(ret.refundAmount || ret.total) || 0;
+                    });
+                }
+
+                const totalExpAndRet = totalExpenses + totalReturns;
+
+                const netSalesExcludingVat = vatType === 'included' 
+                    ? (totalGrossSales - totalDiscount) / (1 + vatRate) 
+                    : (totalGrossSales - totalDiscount);
+
+                const finalNetProfit = netSalesExcludingVat - totalBuyCost - totalExpAndRet;
+                const finalProfitMargin = netSalesExcludingVat > 0 ? (finalNetProfit / netSalesExcludingVat) * 100 : 0;
+
+                // UI Güncelleme - Kartlar
+                const cardGross = document.getElementById('net-card-gross');
+                const cardCount = document.getElementById('net-card-count');
+                const cardDiscount = document.getElementById('net-card-discount');
+                const cardVat = document.getElementById('net-card-vat');
+                const cardVatSub = document.getElementById('net-card-vat-sub');
+                const cardCost = document.getElementById('net-card-cost');
+                const cardExpRet = document.getElementById('net-card-exp-ret');
+
+                if (cardGross) cardGross.textContent = totalGrossSales.toFixed(0) + '₺';
+                if (cardCount) cardCount.textContent = totalItemsQty + ' Adet Ürün Satışı';
+                if (cardDiscount) cardDiscount.textContent = '-' + totalDiscount.toFixed(0) + '₺';
+                if (cardVat) cardVat.textContent = '-' + totalVatAmount.toFixed(0) + '₺';
+                if (cardVatSub) cardVatSub.textContent = `%${(vatRate * 100).toFixed(0)} KDV (${vatType === 'included' ? 'Dahil' : 'Hariç'})`;
+                if (cardCost) cardCost.textContent = '-' + totalBuyCost.toFixed(0) + '₺';
+                if (cardExpRet) cardExpRet.textContent = '-' + totalExpAndRet.toFixed(0) + '₺';
+
+                const finalBox = document.getElementById('net-card-final-box');
+                const profitEl = document.getElementById('net-card-final-profit');
+                const marginEl = document.getElementById('net-card-margin');
+
+                if (profitEl) profitEl.textContent = (finalNetProfit >= 0 ? '➕ ' : '📉 ') + finalNetProfit.toFixed(0) + '₺';
+                if (marginEl) marginEl.textContent = '%' + finalProfitMargin.toFixed(1);
+
+                if (finalBox && profitEl && marginEl) {
+                    if (finalNetProfit >= 0) {
+                        finalBox.style.borderLeftColor = theme.success;
+                        profitEl.style.color = theme.success;
+                        marginEl.style.color = theme.success;
+                    } else {
+                        finalBox.style.borderLeftColor = theme.error;
+                        profitEl.style.color = theme.error;
+                        marginEl.style.color = theme.error;
+                    }
+                }
+
+                // GÜNLÜK TABLO
+                const dailyContainer = document.getElementById('net-daily-table-container');
+                const dailyRowsCountEl = document.getElementById('daily-rows-count');
+                const dailyEntries = Object.entries(dailyMap).sort((a, b) => {
+                    return new Date(b[0].split('.').reverse().join('-')) - new Date(a[0].split('.').reverse().join('-'));
+                });
+
+                if (dailyRowsCountEl) dailyRowsCountEl.textContent = dailyEntries.length + ' Gün Kaydı';
+
+                if (dailyContainer) {
+                    if (dailyEntries.length === 0) {
+                        dailyContainer.innerHTML = `<div style="text-align: center; color: ${theme.textLight}; padding: 16px; font-size: 11px;">📭 Seçilen kriterlerde gün bazlı satış bulunamadı.</div>`;
+                    } else {
+                        dailyContainer.innerHTML = `
+                            <table style="width: 100%; border-collapse: collapse; font-size: 10px; text-align: left;">
+                                <thead>
+                                    <tr style="background: ${theme.primary}15; color: ${theme.primary}; border-bottom: 2px solid ${theme.primary}30;">
+                                        <th style="padding: 6px;">Tarih</th>
+                                        <th style="padding: 6px;">Satış Adet</th>
+                                        <th style="padding: 6px;">Brüt Ciro</th>
+                                        <th style="padding: 6px;">İskonto</th>
+                                        <th style="padding: 6px;">Net Alış Maliyeti</th>
+                                        <th style="padding: 6px;">KDV Yükü</th>
+                                        <th style="padding: 6px;">Günlük Net Kar</th>
+                                        <th style="padding: 6px;">Marj %</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${dailyEntries.map(([date, d]) => {
+                                        const netSalesExVat = vatType === 'included' ? (d.gross - d.discount) / (1 + vatRate) : (d.gross - d.discount);
+                                        const dayProfit = netSalesExVat - d.cost;
+                                        const dayMargin = netSalesExVat > 0 ? (dayProfit / netSalesExVat) * 100 : 0;
+
+                                        return `
+                                            <tr style="border-bottom: 1px solid ${theme.primary}15; background: ${theme.card};">
+                                                <td style="padding: 6px; font-weight: bold; color: ${theme.primary};">📅 ${date}</td>
+                                                <td style="padding: 6px;">${d.count} Adet</td>
+                                                <td style="padding: 6px; font-weight: bold; color: ${theme.info};">${d.gross.toFixed(0)}₺</td>
+                                                <td style="padding: 6px; color: ${theme.warning};">-${d.discount.toFixed(0)}₺</td>
+                                                <td style="padding: 6px; color: #ec4899;">-${d.cost.toFixed(0)}₺</td>
+                                                <td style="padding: 6px; color: #8b5cf6;">-${d.vat.toFixed(0)}₺</td>
+                                                <td style="padding: 6px; font-weight: 900; color: ${dayProfit >= 0 ? theme.success : theme.error};">
+                                                    ${dayProfit >= 0 ? '+' : ''}${dayProfit.toFixed(0)}₺
+                                                </td>
+                                                <td style="padding: 6px; font-weight: bold; color: ${dayMargin >= 0 ? theme.success : theme.error};">
+                                                    %${dayMargin.toFixed(1)}
+                                                </td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        `;
+                    }
+                }
+
+                // SATIŞ & KALEM DETAY LİSTESİ
+                const itemsContainer = document.getElementById('net-items-detail-container');
+                if (itemsContainer) {
+                    if (detailedItems.length === 0) {
+                        itemsContainer.innerHTML = `<div style="text-align: center; color: ${theme.textLight}; padding: 16px; font-size: 11px;">📭 Arama veya tarih kriterine uygun satış kalemi bulunamadı.</div>`;
+                    } else {
+                        itemsContainer.innerHTML = `
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 8px;">
+                                ${detailedItems.map(item => `
+                                    <div style="background: ${theme.background}; padding: 8px; border-radius: 6px; border: 1px solid ${theme.primary}20; font-size: 10px; border-left: 3px solid ${item.netProfit >= 0 ? theme.success : theme.error};">
+                                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 4px;">
+                                            <div>
+                                                <div style="font-weight: bold; color: ${theme.primary};">${item.name} <span style="color: ${theme.textLight};">x${item.qty}</span></div>
+                                                <div style="font-size: 8px; color: ${theme.textLight};">Fiş: ${item.invoiceNo} | 👤 ${item.customer}</div>
+                                            </div>
+                                            <div style="text-align: right;">
+                                                <div style="font-weight: 900; color: ${item.netProfit >= 0 ? theme.success : theme.error}; font-size: 11px;">
+                                                    ${item.netProfit >= 0 ? '+' : ''}${item.netProfit.toFixed(0)}₺ Net Kar
+                                                </div>
+                                                <div style="font-size: 8px; color: ${theme.textLight};">%${item.margin.toFixed(1)} Marj</div>
+                                            </div>
+                                        </div>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; padding-top: 4px; border-top: 1px dashed ${theme.primary}20; font-size: 8px; color: ${theme.textLight};">
+                                            <div>Alış: <strong>${item.cost.toFixed(0)}₺</strong> (${item.buyPrice}₺/ad)</div>
+                                            <div>Brüt Satış: <strong>${item.gross.toFixed(0)}₺</strong></div>
+                                            <div>KDV: <strong>${item.vat.toFixed(0)}₺</strong></div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `;
+                    }
+                }
+            };
+
+            // Dışa aktar - PDF
+            window.exportDetailedProfitPDF = function() {
+                const start = document.getElementById('net-start-date')?.value || 'Tüm Zamanlar';
+                const end = document.getElementById('net-end-date')?.value || 'Tüm Zamanlar';
+
+                const gross = document.getElementById('net-card-gross')?.textContent || '0₺';
+                const discount = document.getElementById('net-card-discount')?.textContent || '0₺';
+                const vat = document.getElementById('net-card-vat')?.textContent || '0₺';
+                const cost = document.getElementById('net-card-cost')?.textContent || '0₺';
+                const expRet = document.getElementById('net-card-exp-ret')?.textContent || '0₺';
+                const netProfit = document.getElementById('net-card-final-profit')?.textContent || '0₺';
+                const margin = document.getElementById('net-card-margin')?.textContent || '%0';
+
+                const html = `
+                    <div style="padding: 20px; font-family: Arial, sans-serif; color: #111;">
+                        <h2 style="color: #6366f1; margin-bottom: 4px;">🐾 Çağdaş PetShop - Detaylı Net Kar & Maliyet Raporu</h2>
+                        <p style="font-size: 12px; color: #666; margin-bottom: 16px;">
+                            <strong>Rapor Tarihi:</strong> ${new Date().toLocaleString('tr-TR')} | <strong>Tarih Aralığı:</strong> ${start} - ${end}
+                        </p>
+                        
+                        <div style="background: #f3f4f6; padding: 12px; border-radius: 8px; margin-bottom: 20px;">
+                            <h3 style="margin: 0 0 8px 0; font-size: 14px; color: #1f2937;">📊 Rapor Özet Metrikleri</h3>
+                            <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+                                <tr><td><strong>Brüt Ciro (Satış):</strong></td><td>${gross}</td></tr>
+                                <tr><td><strong>Toplam İskonto:</strong></td><td>${discount}</td></tr>
+                                <tr><td><strong>Hesaplanan KDV:</strong></td><td>${vat}</td></tr>
+                                <tr><td><strong>Stok Alış Maliyeti:</strong></td><td>${cost}</td></tr>
+                                <tr><td><strong>Dükkan Gider & İadeler:</strong></td><td>${expRet}</td></tr>
+                                <tr style="border-top: 2px solid #ccc; font-size: 14px; font-weight: bold; color: #10b981;">
+                                    <td><strong>NET KAR / ZARAR:</strong></td><td>${netProfit} (Marj: ${margin})</td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <h3 style="font-size: 14px; color: #1f2937; margin-bottom: 8px;">📅 Günlük Tablo Dökümü</h3>
+                        ${document.getElementById('net-daily-table-container')?.innerHTML || ''}
+                    </div>
+                `;
+
+                const opt = {
+                    margin: 10,
+                    filename: `Net_Kar_Raporu_${start}_${end}.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2 },
+                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                };
+
+                if (typeof html2pdf !== 'undefined') {
+                    html2pdf().set(opt).from(html).save();
+                } else {
+                    alert("⚠️ PDF modülü yüklenemedi. Lütfen tekrar deneyin.");
+                }
+            };
+
+            // Dışa aktar - CSV / Excel
+            window.exportDetailedProfitCSV = function() {
+                const start = document.getElementById('net-start-date')?.value || 'all';
+                const end = document.getElementById('net-end-date')?.value || 'all';
+
+                let csv = "Tarih;Brüt Ciro;İskonto;Net Alış Maliyeti;KDV Yükü;Günlük Net Kar\n";
+
+                const rows = document.querySelectorAll('#net-daily-table-container tbody tr');
+                rows.forEach(row => {
+                    const cols = row.querySelectorAll('td');
+                    if (cols.length >= 7) {
+                        const date = cols[0].textContent.replace('📅', '').trim();
+                        const gross = cols[2].textContent.trim();
+                        const discount = cols[3].textContent.trim();
+                        const cost = cols[4].textContent.trim();
+                        const vat = cols[5].textContent.trim();
+                        const net = cols[6].textContent.trim();
+
+                        csv += `"${date}";"${gross}";"${discount}";"${cost}";"${vat}";"${net}"\n`;
+                    }
+                });
+
+                const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `Net_Kar_Raporu_${start}_${end}.csv`;
+                link.click();
+            };
+
+            // İlk Yükleme
+            window.calculateNetProfitReport();
+        }
+
         // ========== GÜN SONU RAPORU ==========
         function renderDailySummary(screen) {
             // dailyCloseTime yoksa default olarak oluştur
@@ -6030,6 +6651,38 @@
             }
 
             // INTERACTION HELPERS
+            window.persistCurrentTheme = function() {
+                theme.name = theme.name || '🎨 Özel Tasarım';
+                if (state.user) {
+                    const uKey = (state.user.username || state.user.name || 'user').toLowerCase().trim();
+                    if (!state.userThemes) state.userThemes = {};
+                    state.userThemes[uKey] = Object.assign({}, theme);
+                    state.user.userTheme = Object.assign({}, theme);
+                    try { localStorage.setItem('cagdas_user_theme_' + uKey, JSON.stringify(theme)); } catch(e){}
+                }
+                try { localStorage.setItem('cagdas_custom_theme', JSON.stringify(theme)); } catch(e){}
+                state.customTheme = Object.assign({}, theme);
+                saveData();
+            };
+
+            window.resetToDefaultTheme = function() {
+                try {
+                    localStorage.removeItem('cagdas_custom_theme');
+                    localStorage.removeItem('theme');
+                    if (state && state.user) {
+                        const uKey = (state.user.username || state.user.name || 'user').toLowerCase().trim();
+                        localStorage.removeItem('cagdas_user_theme_' + uKey);
+                        if (state.userThemes) delete state.userThemes[uKey];
+                        delete state.user.userTheme;
+                    }
+                    if (typeof themes !== 'undefined' && themes.purple) {
+                        theme = Object.assign({}, themes.purple);
+                    }
+                    applyThemeStyles();
+                    saveData();
+                } catch(e) {}
+            };
+
             window.setBgType = function(type) {
                 if (type === 'video') {
                     if (!theme.bgVideo) {
@@ -6041,10 +6694,12 @@
                     if (!theme.bgImage) {
                         theme.bgImage = 'https://images.unsplash.com/photo-1548767797-d8c844163c4c?auto=format&fit=crop&w=1200&q=80';
                     }
+                    if (theme.bgOpacity === undefined || theme.bgOpacity < 0.5) theme.bgOpacity = 0.85;
                 } else if (type === 'pattern') {
                     theme.bgVideo = '';
                     theme.bgImage = presetPatterns.paw;
                 }
+                window.persistCurrentTheme();
                 applyThemeStyles();
                 window.switchThemeTab('background');
                 updateLivePreviewBox();
@@ -6060,6 +6715,8 @@
                 const videoUrl = URL.createObjectURL(file);
                 theme.bgVideo = videoUrl;
                 theme.bgImage = '';
+                if (theme.bgOpacity === undefined || theme.bgOpacity < 0.5) theme.bgOpacity = 0.85;
+                window.persistCurrentTheme();
                 applyThemeStyles();
                 window.switchThemeTab('background');
                 updateLivePreviewBox();
@@ -6074,6 +6731,8 @@
                 }
                 theme.bgVideo = url;
                 theme.bgImage = '';
+                if (theme.bgOpacity === undefined || theme.bgOpacity < 0.5) theme.bgOpacity = 0.85;
+                window.persistCurrentTheme();
                 applyThemeStyles();
                 window.switchThemeTab('background');
                 updateLivePreviewBox();
@@ -6083,6 +6742,8 @@
             window.setBgVideoUrl = function(url) {
                 theme.bgVideo = url;
                 theme.bgImage = '';
+                if (theme.bgOpacity === undefined || theme.bgOpacity < 0.5) theme.bgOpacity = 0.85;
+                window.persistCurrentTheme();
                 applyThemeStyles();
                 window.switchThemeTab('background');
                 updateLivePreviewBox();
@@ -6091,6 +6752,7 @@
 
             window.clearCustomBgVideo = function() {
                 theme.bgVideo = '';
+                window.persistCurrentTheme();
                 applyThemeStyles();
                 window.switchThemeTab('background');
                 updateLivePreviewBox();
@@ -6104,6 +6766,8 @@
                 }
                 theme.bgImage = url;
                 theme.bgVideo = '';
+                if (theme.bgOpacity === undefined || theme.bgOpacity < 0.5) theme.bgOpacity = 0.85;
+                window.persistCurrentTheme();
                 applyThemeStyles();
                 window.switchThemeTab('background');
                 updateLivePreviewBox();
@@ -6113,6 +6777,8 @@
             window.setBgImageUrl = function(url) {
                 theme.bgImage = url;
                 theme.bgVideo = '';
+                if (theme.bgOpacity === undefined || theme.bgOpacity < 0.5) theme.bgOpacity = 0.85;
+                window.persistCurrentTheme();
                 applyThemeStyles();
                 window.switchThemeTab('background');
                 updateLivePreviewBox();
@@ -6123,14 +6789,7 @@
                 if (!themes[presetKey]) return;
                 theme = Object.assign({}, themes[presetKey]);
                 theme.name = themes[presetKey].name;
-                if (state.user) {
-                    const uKey = (state.user.username || state.user.name || 'user').toLowerCase().trim();
-                    if (!state.userThemes) state.userThemes = {};
-                    state.userThemes[uKey] = Object.assign({}, theme);
-                    state.user.userTheme = Object.assign({}, theme);
-                    localStorage.setItem('cagdas_user_theme_' + uKey, JSON.stringify(theme));
-                }
-                saveData();
+                window.persistCurrentTheme();
                 applyThemeStyles();
                 window.switchThemeTab(activeTab);
                 updateLivePreviewBox();
@@ -6163,6 +6822,7 @@
                 if (document.getElementById('ctrl-primary-hex')) document.getElementById('ctrl-primary-hex').value = prim;
                 if (document.getElementById('ctrl-secondary-hex')) document.getElementById('ctrl-secondary-hex').value = sec;
 
+                window.persistCurrentTheme();
                 applyThemeStyles();
                 updateLivePreviewBox();
             };
@@ -6170,6 +6830,7 @@
             window.setPresetPattern = function(patternKey) {
                 theme.bgImage = presetPatterns[patternKey] || '';
                 theme.bgVideo = '';
+                window.persistCurrentTheme();
                 applyThemeStyles();
                 updateLivePreviewBox();
             };
@@ -6183,7 +6844,7 @@
                     const img = new Image();
                     img.onload = function() {
                         const canvas = document.createElement('canvas');
-                        const maxDim = 1200;
+                        const maxDim = 650;
                         let w = img.width;
                         let h = img.height;
                         if (w > maxDim || h > maxDim) {
@@ -6194,12 +6855,14 @@
                         canvas.height = h;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, w, h);
-                        theme.bgImage = canvas.toDataURL('image/jpeg', 0.85);
+                        theme.bgImage = canvas.toDataURL('image/jpeg', 0.55);
                         theme.bgVideo = '';
+                        if (theme.bgOpacity === undefined || theme.bgOpacity < 0.5) theme.bgOpacity = 0.85;
+                        window.persistCurrentTheme();
                         applyThemeStyles();
                         window.switchThemeTab('background');
                         updateLivePreviewBox();
-                        alert('✅ Arka plan duvar kağıdı yüklendi!');
+                        alert('✅ Arka plan duvar kağıdı yüklendi ve uygulandı!');
                     };
                     img.src = e.target.result;
                 };
@@ -6208,6 +6871,7 @@
 
             window.clearCustomBgImage = function() {
                 theme.bgImage = '';
+                window.persistCurrentTheme();
                 applyThemeStyles();
                 window.switchThemeTab('background');
                 updateLivePreviewBox();
