@@ -128,6 +128,14 @@
         let theme = themes.purple;
         let currentViewMode = localStorage.getItem('cagdas_view_mode') || 'auto';
 
+        function getThemeColors() {
+            return {
+                ...theme,
+                border: theme.border || (theme.textLight ? theme.textLight + '30' : 'rgba(150,150,150,0.2)')
+            };
+        }
+        window.getThemeColors = getThemeColors;
+
         function setViewMode(mode) {
             currentViewMode = mode;
             try {
@@ -7724,6 +7732,7 @@ ${itemsList}
 
             let isRemoteUpdate = false;
             let saveTimeout = null;
+            let isInitialCloudLoadComplete = false;
 
             function updateCloudSyncUI(status) {
                 const el = document.getElementById("cloud-sync-badge");
@@ -7745,6 +7754,7 @@ ${itemsList}
 
             // Real-Time Sync Listener
             onSnapshot(docRef, (snapshot) => {
+                isInitialCloudLoadComplete = true;
                 if (snapshot.exists()) {
                     const remoteData = snapshot.data();
                     if (remoteData && remoteData.data && window.state) {
@@ -7770,16 +7780,19 @@ ${itemsList}
                         setTimeout(() => { isRemoteUpdate = false; }, 300);
                     }
                 } else {
-                    // Seed Firestore if empty
-                    window.syncStateToCloud();
+                    // Seed Firestore if empty in cloud
+                    window.syncStateToCloud(true);
                 }
             }, (error) => {
                 console.warn("Firestore listener note:", error);
+                isInitialCloudLoadComplete = true;
                 updateCloudSyncUI("synced");
             });
 
-            window.syncStateToCloud = function() {
+            window.syncStateToCloud = function(force = false) {
                 if (isRemoteUpdate || !window.state) return;
+                if (!isInitialCloudLoadComplete && !force) return;
+
                 clearTimeout(saveTimeout);
                 saveTimeout = setTimeout(async () => {
                     try {
@@ -7795,9 +7808,6 @@ ${itemsList}
                     }
                 }, 400);
             };
-
-            // Initial sync trigger
-            window.syncStateToCloud();
         } catch(err) {
             console.error("Firebase init error:", err);
         }
