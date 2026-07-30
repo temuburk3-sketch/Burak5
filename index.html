@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="description" content="Çağdaş PetShop Stok, Satış ve Müşteri Otomasyon Sistemi">
     <title>Çağdaş PetShop v4.2 COMPLETE</title>
     <link rel="manifest" href="/manifest.json">
@@ -126,6 +126,22 @@
         };
 
         let theme = themes.purple;
+        let currentViewMode = localStorage.getItem('cagdas_view_mode') || 'auto';
+
+        function setViewMode(mode) {
+            currentViewMode = mode;
+            try {
+                localStorage.setItem('cagdas_view_mode', mode);
+            } catch(e) {}
+            if (document.body) {
+                document.body.classList.remove('view-mode-auto', 'view-mode-pc', 'view-mode-mobile');
+                document.body.classList.add('view-mode-' + mode);
+            }
+            applyThemeStyles();
+            if (typeof render === 'function') {
+                render();
+            }
+        }
 
         function getAccountTheme(user) {
             if (!user) return null;
@@ -272,6 +288,80 @@
                 }
             ` : '';
 
+            if (document.body) {
+                document.body.classList.remove('view-mode-auto', 'view-mode-pc', 'view-mode-mobile');
+                document.body.classList.add('view-mode-' + currentViewMode);
+            }
+
+            let viewModeCss = '';
+            if (currentViewMode === 'pc') {
+                viewModeCss = `
+                    body {
+                        overflow-x: auto !important;
+                    }
+                    #app {
+                        min-width: 1024px !important;
+                        max-width: 1440px !important;
+                        margin: 0 auto !important;
+                        box-shadow: 0 0 40px rgba(0, 0, 0, 0.12) !important;
+                    }
+                    .pos-layout-wrapper {
+                        grid-template-columns: 1.6fr 1fr !important;
+                        align-items: start !important;
+                    }
+                    .pos-products-grid {
+                        grid-template-columns: repeat(4, 1fr) !important;
+                        gap: 8px !important;
+                    }
+                    .pos-product-card {
+                        padding: 8px 6px !important;
+                    }
+                    .pos-products-scroll-wrapper {
+                        max-height: 480px !important;
+                    }
+                    .grid-2 { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
+                    .grid-3 { grid-template-columns: repeat(3, 1fr) !important; gap: 12px !important; }
+                    .grid-4 { grid-template-columns: repeat(4, 1fr) !important; gap: 12px !important; }
+                    .card { padding: 12px 16px !important; margin-bottom: 12px !important; }
+                `;
+            } else if (currentViewMode === 'mobile') {
+                viewModeCss = `
+                    body {
+                        background-color: ${theme.background ? theme.background : '#0f172a'} !important;
+                        display: flex !important;
+                        justify-content: center !important;
+                        padding: 0 !important;
+                    }
+                    #app {
+                        width: 100% !important;
+                        max-width: 440px !important;
+                        min-height: 100vh !important;
+                        margin: 0 auto !important;
+                        box-shadow: 0 0 50px rgba(0, 0, 0, 0.3) !important;
+                        border-left: 1px solid rgba(255, 255, 255, 0.1);
+                        border-right: 1px solid rgba(255, 255, 255, 0.1);
+                    }
+                    .pos-layout-wrapper {
+                        grid-template-columns: 1fr !important;
+                        gap: 10px !important;
+                    }
+                    .pos-products-grid {
+                        grid-template-columns: repeat(3, 1fr) !important;
+                        gap: 4px !important;
+                    }
+                    .pos-product-card {
+                        padding: 6px 4px !important;
+                    }
+                    .pos-products-scroll-wrapper {
+                        max-height: 220px !important;
+                    }
+                    .grid-2 { grid-template-columns: repeat(2, 1fr) !important; gap: 6px !important; }
+                    .grid-3 { grid-template-columns: repeat(3, 1fr) !important; gap: 6px !important; }
+                    .grid-4 { grid-template-columns: repeat(2, 1fr) !important; gap: 6px !important; }
+                    .card { padding: 8px 10px !important; margin-bottom: 8px !important; border-radius: 10px !important; }
+                `;
+            }
+
             styleTag.textContent = `
                 html {
                     background-color: ${theme.background || '#f9f5ff'} !important;
@@ -401,6 +491,7 @@
                         margin: 0 auto;
                     }
                 }
+                ${viewModeCss}
             `;
         }
 
@@ -1268,7 +1359,12 @@
                                 <div style="font-size: 10px; opacity: 0.75; margin-top: 2px;">${new Date().toLocaleString('tr-TR', {weekday: 'long', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'})}</div>
                             </div>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <div title="Ekran Görünüm Modu Değiştir" style="display: flex; background: rgba(0,0,0,0.25); border-radius: 20px; padding: 2px; border: 1px solid rgba(255,255,255,0.25); backdrop-filter: blur(4px);">
+                                <button type="button" onclick="setViewMode('pc')" title="Masaüstü / PC Görünümüne Geç" style="padding: 3px 7px; border-radius: 14px; border: none; font-size: 10px; cursor: pointer; font-weight: 900; background: ${currentViewMode === 'pc' ? '#ffffff' : 'transparent'}; color: ${currentViewMode === 'pc' ? '#0f172a' : '#ffffff'}; transition: all 0.2s ease;">💻 PC</button>
+                                <button type="button" onclick="setViewMode('auto')" title="Otomatik Görünüm (Duyarlı)" style="padding: 3px 7px; border-radius: 14px; border: none; font-size: 10px; cursor: pointer; font-weight: 900; background: ${currentViewMode === 'auto' ? '#ffffff' : 'transparent'}; color: ${currentViewMode === 'auto' ? '#0f172a' : '#ffffff'}; transition: all 0.2s ease;">⚙️ Oto</button>
+                                <button type="button" onclick="setViewMode('mobile')" title="Mobil Görünüme Geç" style="padding: 3px 7px; border-radius: 14px; border: none; font-size: 10px; cursor: pointer; font-weight: 900; background: ${currentViewMode === 'mobile' ? '#ffffff' : 'transparent'}; color: ${currentViewMode === 'mobile' ? '#0f172a' : '#ffffff'}; transition: all 0.2s ease;">📱 Mobil</button>
+                            </div>
                             <div id="cloud-sync-badge" style="font-size: 10px; padding: 4px 8px; border-radius: 20px; font-weight: bold; background: rgba(16, 185, 129, 0.25); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.3); backdrop-filter: blur(4px);">☁️ Bulut Bağlı</div>
                             <div style="text-align: right; font-size: 10px; padding: 6px 10px; background: rgba(255,255,255,0.15); border-radius: 6px; backdrop-filter: blur(4px);">
                                 <div style="opacity: 0.7;">👤 ${state.user.name}</div>
@@ -6339,6 +6435,7 @@
                     <button onclick="switchThemeTab('colors')" id="tab-btn-colors" class="tab-btn" style="padding: 8px 12px; border-radius: 6px; border: 1px solid ${theme.primary}; font-weight: bold; font-size: 11px; cursor: pointer; background: transparent; color: ${theme.text};">🌈 Çift Renk & Degrade</button>
                     <button onclick="switchThemeTab('background')" id="tab-btn-background" class="tab-btn" style="padding: 8px 12px; border-radius: 6px; border: 1px solid ${theme.primary}; font-weight: bold; font-size: 11px; cursor: pointer; background: transparent; color: ${theme.text};">🖼️ Arka Plan & Görsel</button>
                     <button onclick="switchThemeTab('typography')" id="tab-btn-typography" class="tab-btn" style="padding: 8px 12px; border-radius: 6px; border: 1px solid ${theme.primary}; font-weight: bold; font-size: 11px; cursor: pointer; background: transparent; color: ${theme.text};">✒️ Tipografi & Stil</button>
+                    <button onclick="switchThemeTab('display')" id="tab-btn-display" class="tab-btn" style="padding: 8px 12px; border-radius: 6px; border: 1px solid ${theme.primary}; font-weight: bold; font-size: 11px; cursor: pointer; background: transparent; color: ${theme.text};">💻/📱 PC & Mobil Görünüm</button>
                 </div>
 
                 <!-- TAB CONTENT CONTAINER -->
@@ -6355,7 +6452,7 @@
             // Tab değiştirme ve render fonksiyonları
             window.switchThemeTab = function(tabName) {
                 activeTab = tabName;
-                ['presets', 'colors', 'background', 'typography'].forEach(t => {
+                ['presets', 'colors', 'background', 'typography', 'display'].forEach(t => {
                     const btn = document.getElementById(`tab-btn-${t}`);
                     if (btn) {
                         if (t === tabName) {
@@ -6379,6 +6476,8 @@
                     renderBackgroundTab(content);
                 } else if (tabName === 'typography') {
                     renderTypographyTab(content);
+                } else if (tabName === 'display') {
+                    renderDisplayTab(content);
                 }
             };
 
@@ -6646,6 +6745,61 @@
                                 <span>✨ Buzlu Cam Efekti (Glassmorphism Blur)</span>
                                 <input type="checkbox" id="ctrl-glass-toggle" ${theme.cardGlass ? 'checked' : ''} onchange="updateCustomThemeFromUI()" style="width: 16px; height: 16px;" />
                             </label>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // TAB 5: EKRAN GÖRÜNÜM MODU (PC / MOBİL / OTOMATİK)
+            function renderDisplayTab(container) {
+                container.innerHTML = `
+                    <div class="card" style="border-left: 3px solid ${theme.primary};">
+                        <div style="font-size: 13px; font-weight: 900; color: ${theme.primary}; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                            🖥️ / 📱 Ekran Görünüm Modu (PC & Mobil Ayrımı)
+                        </div>
+                        <div style="font-size: 11px; color: ${theme.textLight}; margin-bottom: 14px; line-height: 1.5;">
+                            Uygulamanın ekran düzenini istediğiniz cihaz moduna sabitleyebilir veya cihaz genişliğine göre kendiliğinden ayarlanması için Otomatik modda bırakabilirsiniz.
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px;">
+                            <!-- OPTION 1: PC / MASAÜSTÜ MODU -->
+                            <div onclick="setViewMode('pc')" style="padding: 14px 12px; border-radius: 12px; border: 2px solid ${currentViewMode === 'pc' ? theme.primary : 'rgba(0,0,0,0.1)'}; background: ${currentViewMode === 'pc' ? theme.primary + '12' : theme.card}; cursor: pointer; text-align: center; transition: all 0.2s ease; box-shadow: ${currentViewMode === 'pc' ? '0 4px 12px ' + theme.primary + '30' : 'none'};">
+                                <div style="font-size: 32px; margin-bottom: 6px;">💻</div>
+                                <div style="font-weight: 900; font-size: 12px; color: ${theme.primary};">PC / Masaüstü Modu</div>
+                                <div style="font-size: 10px; color: ${theme.textLight}; margin-top: 6px; line-height: 1.4;">
+                                    Geniş ekran düzeni. POS satış paneli yan yana 2 sütun, 4'lü ürün kartı ızgarası ve geniş masaüstü görünümü sunar.
+                                </div>
+                                ${currentViewMode === 'pc' 
+                                    ? `<div style="margin-top: 10px; font-size: 10px; font-weight: 900; color: ${theme.success}; background: ${theme.success}15; padding: 4px; border-radius: 6px;">✅ Aktif Kullanımda</div>` 
+                                    : `<button type="button" onclick="setViewMode('pc')" style="margin-top: 10px; width: 100%; padding: 6px; background: ${theme.primary}15; color: ${theme.primary}; border: 1px solid ${theme.primary}30; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;">💻 PC Moduna Geç</button>`
+                                }
+                            </div>
+
+                            <!-- OPTION 2: OTOMATİK MOD -->
+                            <div onclick="setViewMode('auto')" style="padding: 14px 12px; border-radius: 12px; border: 2px solid ${currentViewMode === 'auto' ? theme.primary : 'rgba(0,0,0,0.1)'}; background: ${currentViewMode === 'auto' ? theme.primary + '12' : theme.card}; cursor: pointer; text-align: center; transition: all 0.2s ease; box-shadow: ${currentViewMode === 'auto' ? '0 4px 12px ' + theme.primary + '30' : 'none'};">
+                                <div style="font-size: 32px; margin-bottom: 6px;">⚙️</div>
+                                <div style="font-weight: 900; font-size: 12px; color: ${theme.primary};">Otomatik (Cihaza Göre)</div>
+                                <div style="font-size: 10px; color: ${theme.textLight}; margin-top: 6px; line-height: 1.4;">
+                                    Telefon, tablet ve bilgisayar ekran genişliğine göre düzenini duyarlı (responsive) olarak kendiliğinden ayarlar.
+                                </div>
+                                ${currentViewMode === 'auto' 
+                                    ? `<div style="margin-top: 10px; font-size: 10px; font-weight: 900; color: ${theme.success}; background: ${theme.success}15; padding: 4px; border-radius: 6px;">✅ Aktif Kullanımda</div>` 
+                                    : `<button type="button" onclick="setViewMode('auto')" style="margin-top: 10px; width: 100%; padding: 6px; background: ${theme.primary}15; color: ${theme.primary}; border: 1px solid ${theme.primary}30; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;">⚙️ Otomatik Moda Geç</button>`
+                                }
+                            </div>
+
+                            <!-- OPTION 3: MOBİL MODU -->
+                            <div onclick="setViewMode('mobile')" style="padding: 14px 12px; border-radius: 12px; border: 2px solid ${currentViewMode === 'mobile' ? theme.primary : 'rgba(0,0,0,0.1)'}; background: ${currentViewMode === 'mobile' ? theme.primary + '12' : theme.card}; cursor: pointer; text-align: center; transition: all 0.2s ease; box-shadow: ${currentViewMode === 'mobile' ? '0 4px 12px ' + theme.primary + '30' : 'none'};">
+                                <div style="font-size: 32px; margin-bottom: 6px;">📱</div>
+                                <div style="font-weight: 900; font-size: 12px; color: ${theme.primary};">Mobil Görünüm Modu</div>
+                                <div style="font-size: 10px; color: ${theme.textLight}; margin-top: 6px; line-height: 1.4;">
+                                    Akıllı telefon ekranına uygun dikey dar görünüm. Dokunmatik dostu kartlar ve simüle edilmiş telefon çerçevesi.
+                                </div>
+                                ${currentViewMode === 'mobile' 
+                                    ? `<div style="margin-top: 10px; font-size: 10px; font-weight: 900; color: ${theme.success}; background: ${theme.success}15; padding: 4px; border-radius: 6px;">✅ Aktif Kullanımda</div>` 
+                                    : `<button type="button" onclick="setViewMode('mobile')" style="margin-top: 10px; width: 100%; padding: 6px; background: ${theme.primary}15; color: ${theme.primary}; border: 1px solid ${theme.primary}30; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;">📱 Mobil Moda Geç</button>`
+                                }
+                            </div>
                         </div>
                     </div>
                 `;
