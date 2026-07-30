@@ -491,6 +491,38 @@
                         margin: 0 auto;
                     }
                 }
+                .pos-mobile-checkout-bar {
+                    display: none;
+                }
+                @media (max-width: 900px) {
+                    .pos-mobile-checkout-bar {
+                        display: flex !important;
+                        position: fixed !important;
+                        bottom: 0 !important;
+                        left: 0 !important;
+                        right: 0 !important;
+                        z-index: 9990 !important;
+                        background: ${theme.card || '#ffffff'} !important;
+                        border-top: 2px solid ${theme.primary || '#8b5cf6'} !important;
+                        padding: 10px 14px !important;
+                        box-shadow: 0 -8px 25px rgba(0,0,0,0.25) !important;
+                        align-items: center !important;
+                        justify-content: space-between !important;
+                        gap: 8px !important;
+                        backdrop-filter: blur(8px);
+                    }
+                    body {
+                        padding-bottom: 75px !important;
+                    }
+                }
+                @keyframes toastIn {
+                    from { opacity: 0; transform: translateY(-20px) scale(0.95); }
+                    to { opacity: 1; transform: translateY(0) scale(1); }
+                }
+                @keyframes modalIn {
+                    from { opacity: 0; transform: scale(0.92); }
+                    to { opacity: 1; transform: scale(1); }
+                }
                 ${viewModeCss}
             `;
         }
@@ -1840,6 +1872,26 @@
                         </div>
                     </div>
                 </div>
+
+                ${state.cart.length > 0 ? `
+                <div class="pos-mobile-checkout-bar">
+                    <div style="display: flex; flex-direction: column;">
+                        <span style="font-size: 10px; opacity: 0.85; font-weight: bold; color: ${theme.textLight};">Sepet (${state.cart.length} Kalem)</span>
+                        <span style="font-size: 18px; font-weight: 900; color: ${theme.success};">${state.cart.reduce((s, a) => s + (a.sellPrice * a.qty), 0).toFixed(0)} ₺</span>
+                    </div>
+                    <div style="display: flex; gap: 6px;">
+                        <button onclick="checkoutPos('cash')" style="padding: 10px 12px; background: ${theme.success}; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 12px; display: flex; align-items: center; gap: 4px; box-shadow: 0 3px 8px rgba(0,0,0,0.2);">
+                            💵 Nakit
+                        </button>
+                        <button onclick="checkoutPos('card')" style="padding: 10px 12px; background: ${theme.info}; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 12px; display: flex; align-items: center; gap: 4px; box-shadow: 0 3px 8px rgba(0,0,0,0.2);">
+                            💳 Kart
+                        </button>
+                        <button onclick="checkoutPos('credit')" style="padding: 10px 12px; background: ${theme.warning}; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 12px; display: flex; align-items: center; gap: 4px; box-shadow: 0 3px 8px rgba(0,0,0,0.2);">
+                            📅 Kredi
+                        </button>
+                    </div>
+                </div>
+                ` : ''}
             `;
 
             // Ürün kartı render yardımcısı
@@ -6296,17 +6348,41 @@
             alert('✅ Satış silindi!');
         };
 
+        // ========== TOAST BİLDİRİM HELPER (Uygulama İçi Bildirim) ==========
+        window.showAppToast = function(msg, type = 'info') {
+            let container = document.getElementById('app-toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'app-toast-container';
+                container.style.cssText = "position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 99999; display: flex; flex-direction: column; gap: 8px; max-width: 90%; width: 360px; pointer-events: none;";
+                document.body.appendChild(container);
+            }
+            const toast = document.createElement('div');
+            const bgColor = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#8b5cf6';
+            toast.style.cssText = `background: ${bgColor}; color: white; padding: 12px 16px; border-radius: 10px; font-weight: bold; font-size: 13px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); text-align: center; pointer-events: auto; animation: toastIn 0.3s ease-out;`;
+            toast.innerText = msg;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        };
+
         // ========== WHATSAPP & FİŞ / FATURA MODAL VE FONKSİYONLARI ==========
-        window.sendSaleWhatsApp = function(saleOrId) {
-            let sale = typeof saleOrId === 'object' ? saleOrId : (state.sales || []).find(s => s.id === saleOrId || s.invoiceNo === saleOrId);
+        window.sendSaleWhatsApp = function(saleOrId, customPhone = null) {
+            let sale = typeof saleOrId === 'object' 
+                ? saleOrId 
+                : (state.sales || []).find(s => String(s.id) === String(saleOrId) || String(s.invoiceNo) === String(saleOrId));
+            
             if (!sale) {
-                alert('⚠️ Satış kaydı bulunamadı!');
+                showAppToast('⚠️ Satış kaydı bulunamadı!', 'error');
                 return;
             }
 
-            let phone = '';
-            if (sale.customerId) {
-                const cust = (state.customers || []).find(c => c.id === sale.customerId);
+            let phone = customPhone || '';
+            if (!phone && sale.customerId) {
+                const cust = (state.customers || []).find(c => String(c.id) === String(sale.customerId));
                 if (cust && cust.phone) phone = cust.phone;
             }
             if (!phone && sale.customer && sale.customer !== 'Peşin Alıcı') {
@@ -6315,13 +6391,34 @@
             }
 
             if (!phone) {
-                const inputPhone = prompt(`📱 "${sale.customer || 'Müşteri'}" için WhatsApp telefon numarasını giriniz (Örn: 05xx...):`, '');
-                if (inputPhone === null) return;
-                phone = inputPhone.trim();
-            }
+                let phoneModal = document.getElementById('whatsapp-phone-modal');
+                if (phoneModal) phoneModal.remove();
+                phoneModal = document.createElement('div');
+                phoneModal.id = 'whatsapp-phone-modal';
+                phoneModal.style.cssText = "position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 99999; padding: 15px; backdrop-filter: blur(4px);";
+                document.body.appendChild(phoneModal);
 
-            if (!phone) {
-                alert('⚠️ Telefon numarası girilmedi!');
+                phoneModal.innerHTML = `
+                    <div style="background: ${theme.card}; border-radius: 14px; padding: 22px; max-width: 380px; width: 100%; border: 2px solid ${theme.primary}; text-align: center; color: ${theme.text}; box-shadow: 0 15px 30px rgba(0,0,0,0.35);">
+                        <div style="font-size: 32px; margin-bottom: 6px;">📱</div>
+                        <div style="font-weight: 900; font-size: 15px; margin-bottom: 6px; color: ${theme.primary};">WhatsApp Telefon Numarası</div>
+                        <div style="font-size: 11px; color: ${theme.textLight}; margin-bottom: 14px;">"${sale.customer || 'Müşteri'}" için Fiş Gönderilecek Telefon Numarasını Giriniz:</div>
+                        <input id="wa-modal-phone-input" type="tel" placeholder="05xx..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1.5px solid ${theme.primary}; font-size: 14px; font-weight: bold; text-align: center; margin-bottom: 16px; background: ${theme.background}; color: ${theme.text};" />
+                        <div style="display: flex; gap: 8px;">
+                            <button type="button" onclick="document.getElementById('whatsapp-phone-modal').remove()" style="flex: 1; padding: 10px; background: ${theme.background}; border: 1px solid ${theme.primary}50; color: ${theme.text}; border-radius: 8px; font-weight: bold; cursor: pointer;">İptal</button>
+                            <button type="button" onclick="
+                                const pVal = document.getElementById('wa-modal-phone-input').value.trim();
+                                if(!pVal) { showAppToast('⚠️ Telefon numarası giriniz!', 'error'); return; }
+                                document.getElementById('whatsapp-phone-modal').remove();
+                                sendSaleWhatsApp('${sale.id}', pVal);
+                            " style="flex: 1; padding: 10px; background: #25D366; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(37,211,102,0.3);">💬 Gönder</button>
+                        </div>
+                    </div>
+                `;
+                setTimeout(() => {
+                    const inp = document.getElementById('wa-modal-phone-input');
+                    if (inp) inp.focus();
+                }, 100);
                 return;
             }
 
